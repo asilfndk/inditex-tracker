@@ -12,7 +12,16 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // esbuild ile üretilen Electron bundle'ı — lint'lenmemeli (artifact).
+    "dist-electron/**",
   ]),
+  // CommonJS build/yardımcı scriptleri — require() bunlarda meşrudur.
+  {
+    files: ["scripts/**/*.cjs"],
+    rules: {
+      "@typescript-eslint/no-require-imports": "off",
+    },
+  },
 ]);
 
 export default eslintConfig;

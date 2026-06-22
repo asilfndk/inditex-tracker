@@ -28,13 +28,21 @@ export default function Home() {
   }, []);
 
   useEffect(() => {
-    refresh();
     if (!hasApi()) return;
+    // İlk yükleme: setState'i await sonrası callback'te yap (effect gövdesinde
+    // doğrudan değil) — cascading render uyarısını önler.
+    let active = true;
+    getApi()
+      .listProducts()
+      .then((p) => {
+        if (active) setProducts(p);
+      });
     // Arka plan kontrolü listeyi değiştirince otomatik yenile.
     const offProducts = getApi().onProductsChanged(refresh);
     // Tray menüsündeki "Ayarlar…" ayar modalını açar.
     const offSettings = getApi().onOpenSettings(() => setSettingsOpen(true));
     return () => {
+      active = false;
       offProducts();
       offSettings();
     };
@@ -174,7 +182,11 @@ function EmptyState() {
       <h2 className="mt-3 max-w-md font-display text-4xl font-light leading-[1.1] tracking-tight text-ink">
         Bir bedenin{" "}
         <span className="font-semibold italic text-signal">geri gelmesini</span>{" "}
-        ya da fiyatın düşmesini bekleme.
+        ya da{" "}
+        <span className="font-semibold italic text-price-drop">
+          fiyatın düşmesini
+        </span>{" "}
+        bekleme.
       </h2>
       <p className="mt-4 max-w-sm text-sm leading-relaxed text-ink-soft">
         Desteklenen mağazalardan bir ürün bağlantısı yapıştır. Stok durumunu
