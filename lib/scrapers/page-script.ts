@@ -314,7 +314,7 @@ const GENERIC_SIZE_BLOCK = `
       });
       if (domSizes.length) {
         out.sizes = domSizes;
-        if (!out.inStock) out.inStock = domSizes.some((s) => s.inStock);
+        out.inStock = domSizes.some((s) => s.inStock);
       }
     }
   } catch (e) {}
@@ -345,7 +345,7 @@ const SNEAKSUP_SIZE_BLOCK = `
         && !/out-of-stock|passive|disabled|tüken|sold/i.test(cls);
       domSizes.push({ label, inStock });
     });
-    if (domSizes.length) { out.sizes = domSizes; if (!out.inStock) out.inStock = domSizes.some((s) => s.inStock); }
+    if (domSizes.length) { out.sizes = domSizes; out.inStock = domSizes.some((s) => s.inStock); }
   } catch (e) {}
 `;
 
@@ -373,7 +373,7 @@ const BOYNER_SIZE_BLOCK = `
         && !/disabled|passive/i.test(cls);
       domSizes.push({ label, inStock });
     });
-    if (domSizes.length) { out.sizes = domSizes; if (!out.inStock) out.inStock = domSizes.some((s) => s.inStock); }
+    if (domSizes.length) { out.sizes = domSizes; out.inStock = domSizes.some((s) => s.inStock); }
   } catch (e) {}
 `;
 
@@ -402,7 +402,7 @@ const WUNDER_SIZE_BLOCK = `
         && !/disabled/i.test(nameCls);
       domSizes.push({ label, inStock });
     });
-    if (domSizes.length) { out.sizes = domSizes; if (!out.inStock) out.inStock = domSizes.some((s) => s.inStock); }
+    if (domSizes.length) { out.sizes = domSizes; out.inStock = domSizes.some((s) => s.inStock); }
   } catch (e) {}
 `;
 

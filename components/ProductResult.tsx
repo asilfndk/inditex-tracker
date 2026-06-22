@@ -27,6 +27,15 @@ export function ProductResult({ url, result, onTracked }: Props) {
   async function track() {
     setTracking(true);
     try {
+      // Hedef beden seçiliyse o bedenin stok durumu; yoksa ürün geneli
+      // (scheduler.effectiveInStock ile aynı kural) — böylece tükenmiş bir beden
+      // takibe alınınca liste noktası anında kırmızı olur.
+      const targetSize = size
+        ? result.sizes.find(
+            (s) => s.label.toLowerCase() === size.toLowerCase(),
+          )
+        : null;
+      const effectiveInStock = targetSize ? targetSize.inStock : result.inStock;
       await getApi().track({
         url,
         name: result.name,
@@ -36,7 +45,7 @@ export function ProductResult({ url, result, onTracked }: Props) {
         trackStock: notifyStock,
         trackPrice: notifyPrice,
         lastPrice: result.price,
-        lastInStock: result.inStock,
+        lastInStock: effectiveInStock,
       });
       setDone(true);
       onTracked();
