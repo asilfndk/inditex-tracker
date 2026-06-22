@@ -13,6 +13,7 @@ const api = {
   getSettings: () => ipcRenderer.invoke("get-settings"),
   setSettings: (patch: unknown) => ipcRenderer.invoke("set-settings", patch),
   checkNow: () => ipcRenderer.invoke("check-now"),
+  testNotification: () => ipcRenderer.invoke("test-notification"),
   openExternal: (url: string) => ipcRenderer.invoke("open-external", url),
   // Arka plan kontrolü liste değiştirince renderer'ı haberdar et.
   onProductsChanged: (cb: () => void) => {

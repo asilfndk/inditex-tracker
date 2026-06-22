@@ -24,6 +24,10 @@ extraResources:
   - from: resources/icon.png
     to: icon.png
 
+# Paketten sonra .app'i bundle id'siyle eşleşen ad-hoc imzayla yeniden imzala
+# (macOS bildirimleri için; ayrıntı: scripts/afterPack.cjs)
+afterPack: scripts/afterPack.cjs
+
 asar: true
 # Native modül (.node) asar dışına çıkarılmalı ki yüklenebilsin
 asarUnpack:

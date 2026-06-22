@@ -14,6 +14,11 @@ function notify(title: string, body: string, url?: string): void {
   n.show();
 }
 
+/** Ayarlardan tetiklenen test bildirimi — izin/kayıt akışını doğrulamak için. */
+export function notifyTest(): void {
+  notify("Atelier", "Bildirimler çalışıyor ✅");
+}
+
 export function notifyRestock(name: string, url: string, size?: string | null): void {
   const sizeStr = size ? ` (${size})` : "";
   notify("Stokta! 🎉", `${name}${sizeStr} artık stokta.`, url);

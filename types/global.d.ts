@@ -84,6 +84,7 @@ export interface InditexApi {
   getSettings(): Promise<AppSettings>;
   setSettings(patch: Partial<Omit<AppSettings, "id">>): Promise<AppSettings>;
   checkNow(): Promise<{ ok: true }>;
+  testNotification(): Promise<{ ok: true }>;
   openExternal(url: string): Promise<{ ok: true }>;
   onProductsChanged(cb: () => void): () => void;
   onOpenSettings(cb: () => void): () => void;

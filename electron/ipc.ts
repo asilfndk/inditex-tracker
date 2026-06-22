@@ -11,6 +11,7 @@ import {
 } from "@/lib/repo";
 import { emitProductsChanged } from "./app-state";
 import { setAutoLaunch } from "./autolaunch";
+import { notifyTest } from "./notifications";
 import { checkAll, reschedule } from "./scheduler";
 
 /**
@@ -61,6 +62,12 @@ export function registerIpc(): void {
 
   ipcMain.handle("open-external", async (_e, url: string) => {
     await shell.openExternal(url);
+    return { ok: true };
+  });
+
+  // Test bildirimi: macOS kaydını tetikler + kullanıcıya çalıştığını gösterir.
+  ipcMain.handle("test-notification", async () => {
+    notifyTest();
     return { ok: true };
   });
 }

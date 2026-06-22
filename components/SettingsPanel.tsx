@@ -73,6 +73,13 @@ export function SettingsPanel({ onClose }: { onClose: () => void }) {
             checked={s.notifyPrice}
             onChange={(v) => patch({ notifyPrice: v })}
           />
+          <button
+            type="button"
+            onClick={() => getApi().testNotification()}
+            className="mt-1 self-start border border-hairline px-3 py-1.5 text-xs text-ink-soft transition-colors hover:border-ink"
+          >
+            Test bildirimi gönder
+          </button>
         </Section>
 
         <Section label="Sistem">
