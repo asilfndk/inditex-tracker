@@ -95,9 +95,13 @@ function schedule(expr: string): void {
 export function startScheduler(): void {
   schedule(getSettings().checkIntervalCron);
   refreshBadge();
+  // Açılışta sıradaki cron sınırını beklemeden bir kez kontrol et (kullanıcı geri bildirimi).
+  void checkAll();
 }
 
 /** Ayar değişince yeniden zamanla. */
 export function reschedule(): void {
   schedule(getSettings().checkIntervalCron);
+  // Yeni ritmin çalıştığını anında göster: sıradaki sınırı beklemeden kontrol et.
+  void checkAll();
 }

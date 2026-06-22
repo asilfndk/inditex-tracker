@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { Trash2 } from "lucide-react";
 import { getApi } from "@/lib/client-api";
 import { BRAND_LABELS, formatPrice, timeAgo } from "@/lib/brands";
@@ -14,6 +15,13 @@ interface Props {
 }
 
 export function Watchlist({ products, onChange, onSelect }: Props) {
+  // Göreli zamanların ("3 dk önce") canlı ilerlemesi için periyodik re-render.
+  const [, setTick] = useState(0);
+  useEffect(() => {
+    const id = setInterval(() => setTick((t) => t + 1), 30_000);
+    return () => clearInterval(id);
+  }, []);
+
   async function remove(id: number) {
     await getApi().untrack(id);
     onChange();
