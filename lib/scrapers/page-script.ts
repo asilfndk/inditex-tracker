@@ -407,3 +407,33 @@ const WUNDER_SIZE_BLOCK = `
 `;
 
 export const WUNDER_PAGE_SCRIPT = STORE_CORE_SCRIPT + WUNDER_SIZE_BLOCK + "\n  return out;\n";
+
+/**
+ * Victoria's Secret beden bloğu: gerçek bedenler `.size_box` öğelerinde
+ * (XS/S/M/L/XL). Tükenmiş beden `size_box nostok` class'ı taşır ve metninde
+ * "TÜKENDİ … HABERİN OLSUN" tooltip'i bulunur — bu yüzden baştaki beden token'ı
+ * ayıklanır. Tükenmiş bedenler de `inStock:false` ile listelenir.
+ * (Genel script yanlışlıkla `.PriceList` içindeki "5.600,00TL"yi `5 6 7 8 9` diye
+ * beden sanıyordu — bu yüzden marka-özel.)
+ */
+const VICTORIASSECRET_SIZE_BLOCK = `
+  try {
+    const TOKEN = /^(XXS|XS|S|M|L|XL|XXL|XXXL|[2-6]XL|\\d{1,3}([.,]\\d)?)/i;
+    const seen = new Set();
+    const domSizes = [];
+    document.querySelectorAll('.size_box').forEach((el) => {
+      const raw = (el.textContent || '').replace(/\\s+/g, ' ').trim();
+      const m = raw.match(TOKEN);
+      const label = m ? m[1].toUpperCase() : '';
+      if (!label || seen.has(label)) return;
+      seen.add(label);
+      const cls = (el.className || '').toString();
+      const inStock = !/nostok|no-stock|tüken|passive|disabled/i.test(cls);
+      domSizes.push({ label, inStock });
+    });
+    if (domSizes.length) { out.sizes = domSizes; out.inStock = domSizes.some((s) => s.inStock); }
+  } catch (e) {}
+`;
+
+export const VICTORIASSECRET_PAGE_SCRIPT =
+  STORE_CORE_SCRIPT + VICTORIASSECRET_SIZE_BLOCK + "\n  return out;\n";

@@ -1,5 +1,5 @@
 import { BaseScraper } from "./base";
-import { GENERIC_PAGE_SCRIPT } from "./page-script";
+import { VICTORIASSECRET_PAGE_SCRIPT } from "./page-script";
 import type { ParsedProduct, ProductStock } from "./types";
 
 /** Victoria's Secret TR: https://www.victoriassecret.com.tr/...-VS27291321 */
@@ -34,6 +34,6 @@ export class VictoriassecretScraper extends BaseScraper {
   }
 
   pageScript(): string {
-    return GENERIC_PAGE_SCRIPT;
+    return VICTORIASSECRET_PAGE_SCRIPT;
   }
 }
