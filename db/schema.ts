@@ -6,8 +6,18 @@ import {
   text,
 } from "drizzle-orm/sqlite-core";
 
-/** Desteklenen Inditex markaları */
-export const BRANDS = ["zara", "bershka", "stradivarius"] as const;
+/** Desteklenen markalar (Inditex + diğer mağazalar) */
+export const BRANDS = [
+  "zara",
+  "bershka",
+  "stradivarius",
+  "sneaksup",
+  "tommy",
+  "victoriassecret",
+  "boyner",
+  "wunder",
+  "superstep",
+] as const;
 export type Brand = (typeof BRANDS)[number];
 
 /** Takip edilen ürünler */

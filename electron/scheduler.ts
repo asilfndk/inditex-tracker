@@ -37,14 +37,17 @@ async function checkOne(p: TrackedProduct): Promise<void> {
 
   const nowInStock = effectiveInStock(p, res);
   const wasInStock = p.lastInStock ?? false;
+  // Genel bildirim anahtarları (ayarlardan); ürün bazlı track* ile birlikte değerlendirilir.
+  const s = getSettings();
 
   // Stok geçişi: yok → var (yalnızca bir kez bildir — edge case #8)
-  if (p.trackStock && !wasInStock && nowInStock) {
+  if (s.notifyStock && p.trackStock && !wasInStock && nowInStock) {
     notifyRestock(p.name ?? "Ürün", p.url, p.targetSize);
   }
 
   // Fiyat düşüşü
   if (
+    s.notifyPrice &&
     p.trackPrice &&
     p.lastPrice != null &&
     res.price != null &&

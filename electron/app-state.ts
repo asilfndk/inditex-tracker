@@ -48,6 +48,15 @@ export function pingRenderer(): void {
   mainWindow?.webContents.send("products-changed");
 }
 
+/** Pencereyi öne al ve renderer'da ayarlar modalını aç (tray menüsünden). */
+export function openSettings(): void {
+  showWindow();
+  // Pencere yeni oluşturulduysa renderer hazır olana dek küçük gecikme.
+  setTimeout(() => {
+    getMainWindow()?.webContents.send("open-settings");
+  }, 300);
+}
+
 export function onProductsChanged(fn: () => void): void {
   productListeners.push(fn);
 }

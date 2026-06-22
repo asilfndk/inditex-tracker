@@ -1,6 +1,11 @@
 import { Menu, Tray, app, nativeImage } from "electron";
 import { listProducts } from "@/lib/repo";
-import { onProductsChanged, resolveAsset, showWindow } from "./app-state";
+import {
+  onProductsChanged,
+  openSettings,
+  resolveAsset,
+  showWindow,
+} from "./app-state";
 import { checkAll, refreshBadge } from "./scheduler";
 
 let tray: Tray | null = null;
@@ -10,7 +15,7 @@ export function createTray(): void {
   const icon = nativeImage.createFromPath(resolveAsset("trayTemplate.png"));
   icon.setTemplateImage(true);
   tray = new Tray(icon.isEmpty() ? nativeImage.createEmpty() : icon);
-  tray.setToolTip("Atelier — Inditex Stok Takip");
+  tray.setToolTip("Atelier — Stok & Fiyat Takip");
   updateTray();
   onProductsChanged(updateTray);
 }
@@ -20,7 +25,8 @@ export function updateTray(): void {
   const items = listProducts();
   const inStock = items.filter((p) => p.lastInStock).length;
 
-  tray.setTitle(inStock > 0 ? ` ◆ ${inStock}` : " ◆");
+  // Stokta ürün varsa sayıyı simgenin yanında göster; yoksa yalnızca ikon.
+  tray.setTitle(inStock > 0 ? ` ${inStock}` : "");
   refreshBadge();
 
   const menu = Menu.buildFromTemplate([
@@ -32,6 +38,7 @@ export function updateTray(): void {
     { type: "separator" },
     { label: "Pencereyi Göster", click: () => showWindow() },
     { label: "Şimdi Kontrol Et", click: () => void checkAll() },
+    { label: "Ayarlar…", click: () => openSettings() },
     { type: "separator" },
     {
       label: "Çıkış",

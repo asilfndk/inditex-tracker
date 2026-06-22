@@ -4,6 +4,12 @@ export const BRAND_LABELS: Record<Brand, string> = {
   zara: "Zara",
   bershka: "Bershka",
   stradivarius: "Stradivarius",
+  sneaksup: "SneaksUp",
+  tommy: "Tommy Hilfiger",
+  victoriassecret: "Victoria's Secret",
+  boyner: "Boyner",
+  wunder: "Wunder",
+  superstep: "Superstep",
 };
 
 export function formatPrice(

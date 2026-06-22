@@ -31,8 +31,13 @@ export default function Home() {
     refresh();
     if (!hasApi()) return;
     // Arka plan kontrolü listeyi değiştirince otomatik yenile.
-    const off = getApi().onProductsChanged(refresh);
-    return off;
+    const offProducts = getApi().onProductsChanged(refresh);
+    // Tray menüsündeki "Ayarlar…" ayar modalını açar.
+    const offSettings = getApi().onOpenSettings(() => setSettingsOpen(true));
+    return () => {
+      offProducts();
+      offSettings();
+    };
   }, [refresh]);
 
   async function checkAllNow() {
@@ -164,7 +169,7 @@ function EmptyState() {
   return (
     <div className="select-none pb-16 pt-8">
       <p className="font-mono text-[11px] uppercase tracking-[0.25em] text-muted">
-        Inditex stok &amp; fiyat takibi
+        Stok &amp; fiyat takibi
       </p>
       <h2 className="mt-3 max-w-md font-display text-4xl font-light leading-[1.1] tracking-tight text-ink">
         Bir bedenin{" "}
@@ -172,9 +177,8 @@ function EmptyState() {
         ya da fiyatın düşmesini bekleme.
       </h2>
       <p className="mt-4 max-w-sm text-sm leading-relaxed text-ink-soft">
-        Zara, Bershka veya Stradivarius'tan bir ürün bağlantısı
-        yapıştır. Stok durumunu anında gör, takibe al; gerisini Atelier arka
-        planda halleder.
+        Desteklenen mağazalardan bir ürün bağlantısı yapıştır. Stok durumunu
+        anında gör, takibe al; gerisini Atelier arka planda halleder.
       </p>
     </div>
   );

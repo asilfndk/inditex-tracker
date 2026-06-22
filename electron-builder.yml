@@ -31,6 +31,9 @@ asarUnpack:
 
 mac:
   icon: resources/icon.icns
+  # Menü-bar (agent) uygulaması: Dock'ta ve Cmd+Tab'da görünme.
+  extendInfo:
+    LSUIElement: 1
   target:
     - target: dmg
       arch:

@@ -4,14 +4,15 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 @AGENTS.md
 
-# Atelier — Inditex Stok Takip Uygulaması
+# Atelier — Çok Markalı Stok Takip Uygulaması
 
-Zara, Bershka ve Stradivarius (Inditex grubu) ürünlerinin stok ve fiyat
-durumunu takip eden bir **Electron masaüstü uygulaması** ("Atelier"). Kullanıcı bir
-ürün URL'si girip anlık kontrol yapar; ürünü takibe alarak stok geldiğinde veya
-fiyat düştüğünde yerel masaüstü bildirimi alır. Uygulama pencere kapansa bile
-tray'de çalışmaya devam eder ve arka planda periyodik kontrol yapar. Beden/renk
-bazlı filtreleme desteklenir.
+Birden çok mağazanın (Inditex: Zara/Bershka/Stradivarius + SneaksUp, Tommy Hilfiger,
+Victoria's Secret, Boyner, Wunder, Superstep) ürünlerinin stok ve fiyat durumunu
+takip eden bir **Electron masaüstü uygulaması** ("Atelier"). Kullanıcı bir ürün URL'si
+girip anlık kontrol yapar; ürünü takibe alarak stok geldiğinde veya fiyat düştüğünde
+yerel masaüstü bildirimi alır. Uygulama yalnızca menü çubuğunda (Dock'ta görünmez,
+`LSUIElement`) çalışır; pencere kapansa bile tray'de kalıp arka planda periyodik
+kontrol yapar. Beden/renk bazlı filtreleme desteklenir.
 
 > **Önemli:** Bu artık bir web uygulaması değil. Firecrawl, Web Push ve `app/api/*`
 > route handler'ları **kaldırıldı**. Veri katmanı Electron main sürecinde çalışır;
@@ -64,8 +65,12 @@ lib/
   scrapers/
     base.ts              BaseScraper: Katman 1 (iç API) → Katman 2 (BrowserWindow)
     browser.ts           Gizli BrowserWindow ile scraping + normalizeRaw + zod doğrulama
-    page-script.ts       Sayfa içinde çalışan DOM/JSON-LD çıkarım scriptleri (string)
-    zara.ts|bershka.ts|stradivarius.ts   marka-özel parseUrl/fetchFromApi/pageScript
+    page-script.ts       Sayfa içinde çalışan DOM/JSON-LD çıkarım scriptleri (string):
+                         JSONLD_PAGE_SCRIPT (Inditex), ZARA_PAGE_SCRIPT,
+                         GENERIC_PAGE_SCRIPT (Inditex dışı TR siteleri için)
+    zara.ts|bershka.ts|stradivarius.ts   Inditex marka-özel parseUrl/fetchFromApi/pageScript
+    sneaksup.ts|tommy.ts|victoriassecret.ts|boyner.ts|wunder.ts|superstep.ts
+                         Diğer mağazalar — GENERIC_PAGE_SCRIPT kullanır
     index.ts             URL→scraper eşlemesi + checkUrl()
 db/
   schema.ts              Drizzle tabloları + BRANDS sabiti

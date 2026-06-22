@@ -110,9 +110,12 @@ async function loadAndExtract(
   url: string,
   pageScript: string,
 ): Promise<unknown> {
-  // ERR_ABORTED genelde locale yönlendirmesidir; içerik yine de yüklenir → yut.
+  // ERR_ABORTED (locale yönlendirmesi) ve ERR_FAILED (başarısız alt-kaynak/redirect
+  // ana çerçeveyi "failed" işaretler) durumlarında DOM yine de render olur → yut ve
+  // çıkarıma devam et. Yalnızca gerçek ağ/iç hataları (DNS, bağlantı yok) yukarı taşı.
+  const SOFT_LOAD_ERRORS = new Set(["ERR_ABORTED", "ERR_FAILED"]);
   await win.loadURL(url, { userAgent: USER_AGENT }).catch((e: { code?: string }) => {
-    if (e?.code && e.code !== "ERR_ABORTED") throw e;
+    if (e?.code && !SOFT_LOAD_ERRORS.has(e.code)) throw e;
   });
   // Sayfanın JS state'ini (JSON-LD) doldurması için bekleme.
   await new Promise((r) => setTimeout(r, 3000));

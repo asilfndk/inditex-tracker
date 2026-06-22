@@ -20,6 +20,12 @@ const api = {
     ipcRenderer.on("products-changed", handler);
     return () => ipcRenderer.removeListener("products-changed", handler);
   },
+  // Tray menüsündeki "Ayarlar…" tıklanınca ayar modalını aç.
+  onOpenSettings: (cb: () => void) => {
+    const handler = () => cb();
+    ipcRenderer.on("open-settings", handler);
+    return () => ipcRenderer.removeListener("open-settings", handler);
+  },
 };
 
 contextBridge.exposeInMainWorld("api", api);

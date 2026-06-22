@@ -3,12 +3,24 @@ import type { BaseScraper } from "./base";
 import { BershkaScraper } from "./bershka";
 import { StradivariusScraper } from "./stradivarius";
 import { ZaraScraper } from "./zara";
+import { SneaksupScraper } from "./sneaksup";
+import { TommyScraper } from "./tommy";
+import { VictoriassecretScraper } from "./victoriassecret";
+import { BoynerScraper } from "./boyner";
+import { WunderScraper } from "./wunder";
+import { SuperstepScraper } from "./superstep";
 import type { ScrapeResult } from "./types";
 
 const scrapers: BaseScraper[] = [
   new ZaraScraper(),
   new BershkaScraper(),
   new StradivariusScraper(),
+  new SneaksupScraper(),
+  new TommyScraper(),
+  new VictoriassecretScraper(),
+  new BoynerScraper(),
+  new WunderScraper(),
+  new SuperstepScraper(),
 ];
 
 /** URL'i işleyebilecek scraper'ı döndür (yoksa null) */
@@ -28,7 +40,7 @@ export async function checkUrl(url: string): Promise<ScrapeResult> {
   const scraper = getScraperForUrl(url);
   if (!scraper) {
     throw new Error(
-      "Desteklenmeyen URL. Yalnızca Zara, Bershka ve Stradivarius ürün bağlantıları desteklenir.",
+      "Desteklenmeyen URL. Desteklenen mağazalardan birinin ürün bağlantısını yapıştırın.",
     );
   }
   return scraper.check(url);

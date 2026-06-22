@@ -183,3 +183,198 @@ export const ZARA_PAGE_SCRIPT = `
     || (product && JSON.stringify(product.offers||{}).toLowerCase().indexOf('instock') !== -1);
   return out;
 `;
+
+/**
+ * Inditex dışı mağazalar için ORTAK çekirdek: JSON-LD Product + og/meta yedeği ile
+ * ad/fiyat/para birimi/görsel/stok (evrensel sinyaller). `out` nesnesini doldurur,
+ * `return` ETMEZ — marka-özel beden bloğu eklenip sonuna `return out;` konur.
+ */
+const STORE_CORE_SCRIPT = `
+  const out = { name: "", price: null, currency: null, imageUrl: null, colors: [], sizes: [], inStock: false };
+
+  // 1) JSON-LD: Product düğümünü bul
+  const blocks = Array.from(document.querySelectorAll('script[type="application/ld+json"]'));
+  let product = null;
+  for (const b of blocks) {
+    try {
+      const data = JSON.parse(b.textContent || "null");
+      const arr = Array.isArray(data) ? data : (data && data['@graph'] ? data['@graph'] : [data]);
+      for (const n of arr) {
+        const t = n && n['@type'];
+        if (t === 'Product' || (Array.isArray(t) && t.includes('Product'))) { product = n; break; }
+      }
+    } catch (e) {}
+    if (product) break;
+  }
+
+  const instockStr = (s) => typeof s === 'string' && s.toLowerCase().replace(/[^a-z]/g,'').indexOf('instock') !== -1;
+
+  if (product) {
+    out.name = product.name || "";
+    if (typeof product.image === 'string') out.imageUrl = product.image;
+    else if (Array.isArray(product.image)) out.imageUrl = product.image[0] || null;
+    else if (product.image && product.image.url) out.imageUrl = product.image.url;
+
+    // offers: Offer | AggregateOffer | dizi
+    let offers = product.offers ? (Array.isArray(product.offers) ? product.offers : [product.offers]) : [];
+    const flat = [];
+    for (const o of offers) {
+      if (o && o['@type'] === 'AggregateOffer') {
+        if (out.price == null && (o.lowPrice != null || o.price != null)) out.price = parseFloat(o.lowPrice != null ? o.lowPrice : o.price);
+        if (!out.currency && o.priceCurrency) out.currency = o.priceCurrency;
+        const inner = o.offers ? (Array.isArray(o.offers) ? o.offers : [o.offers]) : [];
+        inner.forEach((x) => flat.push(x));
+        if (o.availability && instockStr(o.availability)) out.inStock = true;
+      } else if (o) {
+        flat.push(o);
+      }
+    }
+    for (const o of flat) {
+      if (out.price == null && o.price != null) out.price = parseFloat(o.price);
+      if (!out.currency && o.priceCurrency) out.currency = o.priceCurrency;
+      if (instockStr(o.availability)) out.inStock = true;
+    }
+  }
+
+  // 1b) JSON-LD eksik/eksiltili ise meta etiketleri + DOM yedeği.
+  const metaContent = (sel) => {
+    const el = document.querySelector(sel);
+    if (!el) return null;
+    return el.getAttribute('content') || el.getAttribute('value') || (el.textContent || '').trim() || null;
+  };
+  if (!out.name) {
+    out.name = metaContent('meta[property="og:title"]') || (document.title || '').trim() || '';
+  }
+  if (!out.imageUrl) {
+    out.imageUrl = metaContent('meta[property="og:image"]');
+  }
+  if (out.price == null) {
+    // TR sayı formatı: "6.159,00" = 6159.0 (nokta=binlik, virgül=ondalık).
+    const parseTRNumber = (input) => {
+      let s = String(input).replace(/[^\\d.,]/g, '');
+      if (!s) return null;
+      if (s.indexOf(',') !== -1) s = s.replace(/\\./g, '').replace(',', '.');
+      else if ((s.match(/\\./g) || []).length > 1) s = s.replace(/\\./g, '');
+      else if (/^\\d{1,3}\\.\\d{3}$/.test(s)) s = s.replace('.', '');
+      const n = parseFloat(s);
+      return isNaN(n) ? null : n;
+    };
+    const raw = metaContent('meta[property="product:price:amount"]')
+      || metaContent('meta[property="og:price:amount"]')
+      || metaContent('[itemprop="price"]');
+    if (raw) { const n = parseTRNumber(raw); if (n != null) out.price = n; }
+  }
+  if (!out.currency) {
+    out.currency = metaContent('meta[property="product:price:currency"]')
+      || metaContent('meta[property="og:price:currency"]')
+      || metaContent('[itemprop="priceCurrency"]');
+  }
+`;
+
+/** Genel beden bloğu: DOM'dan en iyi çaba (geniş token — harf + sayısal + yarım numara). */
+const GENERIC_SIZE_BLOCK = `
+  try {
+    const TOKEN = /^(XXS|XS|S|M|L|XL|XXL|XXXL|[2-6]XL|ONE SIZE|TEK BEDEN|STD|STD\\.|U|\\d{1,3}([.,/]\\d{1,2})?)$/i;
+    const SEL = 'button, li, [role="button"], [role="option"], [role="radio"], label, a';
+    function collect() {
+      const cands = Array.from(document.querySelectorAll(SEL))
+        .filter((e) => TOKEN.test((e.innerText || '').trim()) && e.children.length <= 1);
+      const byParent = new Map();
+      cands.forEach((e) => {
+        const p = e.parentElement; if (!p) return;
+        (byParent.get(p) || byParent.set(p, []).get(p)).push(e);
+      });
+      let group = [];
+      byParent.forEach((arr) => { if (arr.length > group.length) group = arr; });
+      return group;
+    }
+
+    let els = collect();
+    if (els.length < 2) {
+      const cta = Array.from(document.querySelectorAll('button, [role="button"], a')).find((b) => {
+        const t = (b.innerText || b.getAttribute('aria-label') || '').trim();
+        return /SEPETE EKLE|SEPETE AT|ADD TO (BAG|CART|BASKET)|BEDEN SEÇ|BEDEN SEÇİN/i.test(t) && !/istek|wishlist|favori/i.test(t);
+      });
+      if (cta) { try { cta.click(); } catch (e) {} await __sleep(1800); }
+      els = collect();
+    }
+
+    if (els.length >= 2) {
+      const seen = new Set();
+      const domSizes = [];
+      els.forEach((e) => {
+        const label = (e.innerText || '').trim();
+        if (!label || seen.has(label)) return;
+        seen.add(label);
+        const cls = (e.className || '').toString();
+        const ariaDis = e.getAttribute('aria-disabled');
+        const disabled = e.disabled || ariaDis === 'true'
+          || /out-of-stock|disabled|unavailable|passive|sold|tüken|yok/i.test(cls);
+        domSizes.push({ label, inStock: !disabled });
+      });
+      if (domSizes.length) {
+        out.sizes = domSizes;
+        if (!out.inStock) out.inStock = domSizes.some((s) => s.inStock);
+      }
+    }
+  } catch (e) {}
+`;
+
+/**
+ * Inditex dışı genel TR e-ticaret siteleri (T-Soft, Ikas, SFCC vb.) için
+ * platform-bağımsız çıkarım: ortak çekirdek + en iyi çaba beden bloğu.
+ */
+export const GENERIC_PAGE_SCRIPT = STORE_CORE_SCRIPT + GENERIC_SIZE_BLOCK + "\n  return out;\n";
+
+/**
+ * SneaksUp (Ticimax) beden bloğu: `.size-options-item`; stokta olan öğe
+ * `in-stock-attribute-item` class'ı taşır, beden metni `.size-options-item-value`.
+ * Sayfada bir görünür + bir `d-none` blok olabilir; etikete göre tekilleştirilir.
+ */
+const SNEAKSUP_SIZE_BLOCK = `
+  try {
+    const seen = new Set();
+    const domSizes = [];
+    document.querySelectorAll('.size-options-item').forEach((it) => {
+      const valEl = it.querySelector('.size-options-item-value') || it.querySelector('.size-options-item-label');
+      const label = ((valEl ? valEl.textContent : it.textContent) || '').trim();
+      if (!label || seen.has(label)) return;
+      seen.add(label);
+      const cls = (it.className || '').toString();
+      const inStock = /in-stock-attribute-item/i.test(cls)
+        && !/out-of-stock|passive|disabled|tüken|sold/i.test(cls);
+      domSizes.push({ label, inStock });
+    });
+    if (domSizes.length) { out.sizes = domSizes; if (!out.inStock) out.inStock = domSizes.some((s) => s.inStock); }
+  } catch (e) {}
+`;
+
+export const SNEAKSUP_PAGE_SCRIPT = STORE_CORE_SCRIPT + SNEAKSUP_SIZE_BLOCK + "\n  return out;\n";
+
+/**
+ * Boyner (React/CSS-module) beden bloğu: satır `[class*="selectSizeOption__"]`,
+ * etiket `[class*="selectSizeOptionLabel"]` içindeki `<h5>`. Beden paneli kapalı
+ * (`max-height:0`) olduğundan `innerText` boş döner — `textContent` kullanılır.
+ * Stok dışı bedenler sağ slotta "Tükendi"/benzeri metin ya da disabled class taşır.
+ */
+const BOYNER_SIZE_BLOCK = `
+  try {
+    const seen = new Set();
+    const domSizes = [];
+    document.querySelectorAll('[class*="selectSizeOption__"]').forEach((o) => {
+      const lab = o.querySelector('[class*="selectSizeOptionLabel"]');
+      const label = ((lab ? lab.textContent : o.textContent) || '').trim();
+      if (!label || seen.has(label)) return;
+      seen.add(label);
+      const rightEl = o.querySelector('[class*="selectSizeOptionRight"]');
+      const right = ((rightEl && rightEl.textContent) || '').trim();
+      const cls = (o.className || '').toString();
+      const inStock = !/tüken|kalmad|stokta yok|out.?of.?stock|son\\s*0\\b/i.test(right)
+        && !/disabled|passive/i.test(cls);
+      domSizes.push({ label, inStock });
+    });
+    if (domSizes.length) { out.sizes = domSizes; if (!out.inStock) out.inStock = domSizes.some((s) => s.inStock); }
+  } catch (e) {}
+`;
+
+export const BOYNER_PAGE_SCRIPT = STORE_CORE_SCRIPT + BOYNER_SIZE_BLOCK + "\n  return out;\n";

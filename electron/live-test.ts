@@ -26,6 +26,13 @@ const LISTINGS = [
   "https://www.zara.com/us/en/woman-dresses-l1066.html",
   "https://www.bershka.com/tr/kadin/yeni-n3283.html",
   "https://www.stradivarius.com/tr/kadin/giyim/elbiseler-n1928.html",
+  // Yeni mağazalar — doğrudan ürün URL'leri (parseUrl eşleşir → doğrudan scrape).
+  "https://www.sneaksup.com/new-balance-9060-lifestyle-womens-shoes-u9060blk-w-1",
+  "https://tr.tommy.com/erkek-hirka_206739",
+  "https://www.victoriassecret.com.tr/victoria-s-secret-saten-dantel-detayli-askili-bluz-ve-firfirli-sort-takimi-VS27291321",
+  "https://www.boyner.com.tr/nike-if1448-010-m-nk-df-acd25-short-kp-b-siyah-erkek-sort-p-15917358",
+  "https://wunder.com.tr/classic-england-polo-white-ubmw0502fa328-wth0001",
+  "https://www.superstep.com.tr/urun/adidas-handball-spezial-kadin-bej-spor-ayakkabi/ki6678/",
 ];
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));

@@ -1,10 +1,6 @@
 import { join } from "node:path";
-import { BrowserWindow, app, nativeImage, powerMonitor } from "electron";
-import {
-  registerWindowCreator,
-  resolveAsset,
-  setMainWindow,
-} from "./app-state";
+import { BrowserWindow, app, powerMonitor } from "electron";
+import { registerWindowCreator, setMainWindow } from "./app-state";
 
 const isDev = !app.isPackaged;
 const DEV_URL = "http://localhost:3000";
@@ -53,11 +49,9 @@ if (!gotLock) {
   });
 
   app.whenReady().then(async () => {
-    // Dev'de dock simgesi (paketlenmişte .icns kullanılır). Üretimde no-op.
-    if (isDev && app.dock) {
-      const dockIcon = nativeImage.createFromPath(resolveAsset("icon.png"));
-      if (!dockIcon.isEmpty()) app.dock.setIcon(dockIcon);
-    }
+    // Menü-bar uygulaması: Dock'ta hiç görünme (LSUIElement Info.plist'te de set'li).
+    // Pencere açıkken bile yalnızca menü çubuğundaki çanta ikonundan yönetilir.
+    if (app.dock) app.dock.hide();
 
     // DB yolunu kullanıcı verisi klasörüne sabitle (güncellemelerden etkilenmez).
     process.env.DATABASE_URL = `file:${join(app.getPath("userData"), "app.db")}`;

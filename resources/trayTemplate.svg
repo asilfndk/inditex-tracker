@@ -1,10 +1,10 @@
 <svg width="64" height="64" viewBox="0 0 1024 1024" fill="none" xmlns="http://www.w3.org/2000/svg">
-  <!-- Menü çubuğu için tek renk silüet (macOS template image: siyah + alfa) -->
-  <!-- Askı ipi halkası -->
-  <ellipse cx="440" cy="322" rx="44" ry="52" fill="none" stroke="#000000" stroke-width="34"/>
-  <!-- Swing-tag gövdesi (delik evenodd ile boşaltılır) -->
-  <path fill-rule="evenodd" clip-rule="evenodd"
-    d="M 452 330 L 626 330 A 26 26 0 0 1 652 356 L 652 668 A 26 26 0 0 1 626 694 L 398 694 A 26 26 0 0 1 372 668 L 372 410 Z
-       M 424 398 m -22 0 a 22 22 0 1 0 44 0 a 22 22 0 1 0 -44 0 Z"
-    fill="#000000"/>
+  <!-- Menü çubuğu için tek renk çanta silüeti (macOS template image: siyah + alfa).
+       Stroke-only, kenar boşluklu → menü çubuğunda küçük ve net görünür. -->
+  <g fill="none" stroke="#000000" stroke-width="60" stroke-linejoin="round" stroke-linecap="round">
+    <!-- Çanta gövdesi: üst rim düz, alt köşeler yuvarlatılmış -->
+    <path d="M 332 454 L 692 454 L 722 786 A 44 44 0 0 1 678 834 L 346 834 A 44 44 0 0 1 302 786 Z"/>
+    <!-- Kulplar: rim'in üstünde açık kemer -->
+    <path d="M 412 472 L 412 396 A 100 100 0 0 1 612 396 L 612 472"/>
+  </g>
 </svg>

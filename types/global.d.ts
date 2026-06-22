@@ -1,6 +1,15 @@
 // Renderer ↔ Main köprüsünün (preload.ts) renderer tarafındaki tip tanımı.
 
-export type Brand = "zara" | "bershka" | "stradivarius";
+export type Brand =
+  | "zara"
+  | "bershka"
+  | "stradivarius"
+  | "sneaksup"
+  | "tommy"
+  | "victoriassecret"
+  | "boyner"
+  | "wunder"
+  | "superstep";
 
 export interface SizeAvailability {
   label: string;
@@ -77,6 +86,7 @@ export interface InditexApi {
   checkNow(): Promise<{ ok: true }>;
   openExternal(url: string): Promise<{ ok: true }>;
   onProductsChanged(cb: () => void): () => void;
+  onOpenSettings(cb: () => void): () => void;
 }
 
 declare global {
