@@ -20,9 +20,9 @@ const fraunces = Fraunces({
 });
 
 export const metadata: Metadata = {
-  title: "Atelier — Inditex Stok Takip",
+  title: "Atelier — Stok Takip",
   description:
-    "Zara, Bershka ve Stradivarius ürünlerinde stok ve fiyat takibi.",
+    "Zara, Mango, Boyner ve diğer mağazaların ürünlerinde stok ve fiyat takibi.",
 };
 
 export default function RootLayout({

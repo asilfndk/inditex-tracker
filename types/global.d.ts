@@ -9,7 +9,8 @@ export type Brand =
   | "victoriassecret"
   | "boyner"
   | "wunder"
-  | "superstep";
+  | "superstep"
+  | "mango";
 
 export interface SizeAvailability {
   label: string;

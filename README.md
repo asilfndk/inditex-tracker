@@ -9,7 +9,7 @@ Atelier lives in the menu bar (it never shows in the Dock — `LSUIElement`), so
 | | |
 |---|---|
 | **Inditex** | Zara · Bershka · Stradivarius |
-| **Others** | SneaksUp · Tommy Hilfiger · Victoria's Secret · Boyner · Wunder · Superstep |
+| **Others** | Mango · SneaksUp · Tommy Hilfiger · Victoria's Secret · Boyner · Wunder · Superstep |
 
 ## Features
 

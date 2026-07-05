@@ -488,3 +488,55 @@ const VICTORIASSECRET_SIZE_BLOCK = `
 
 export const VICTORIASSECRET_PAGE_SCRIPT =
   STORE_CORE_SCRIPT + VICTORIASSECRET_SIZE_BLOCK + "\n  return out;\n";
+
+/**
+ * Mango (Next.js/RSC) bloğu: JSON-LD yok; ad/görsel og meta'dan (çekirdek okur).
+ * Fiyat: indirimli üründe İKİ \`itemprop="price"\` meta'sı var — ilki üstü çizili
+ * eski fiyat, SONUNCUSU gerçek satış fiyatı (çekirdek ilkini aldığı için düzeltilir).
+ * Beden: \`SizeItem-module\` butonları; stokta olan "selectable" modifier'ı taşır.
+ * Bedensiz ürünlerde (çanta vb.) availability meta'sı yok — EKLE/ADD butonu stok sinyali.
+ */
+const MANGO_BLOCK = `
+  try {
+    // og:title "Ürün adı - Kadın | MANGO Türkiye" biçiminde: kuyruğu at.
+    out.name = out.name
+      .replace(/\\s*\\|\\s*MANGO.*$/i, '')
+      .replace(/\\s*-\\s*(Kadın|Erkek|Çocuk|Genç|Bebek)\\s*$/i, '')
+      .trim();
+  } catch (e) {}
+  try {
+    const priceMetas = document.querySelectorAll('meta[itemprop="price"]');
+    if (priceMetas.length > 1) {
+      const v = parseFloat(priceMetas[priceMetas.length - 1].getAttribute('content') || '');
+      if (!isNaN(v)) out.price = v;
+    }
+  } catch (e) {}
+  try {
+    const seen = new Set();
+    const domSizes = [];
+    document.querySelectorAll('button[class*="SizeItem-module"]').forEach((b) => {
+      const raw = (b.textContent || '').replace(/\\s+/g, ' ').trim();
+      // Tükenmiş bedende buton metnine durum eklenir: "36Mevcut değil. İstiyorum!".
+      const label = raw.replace(/\\s*(Mevcut değil|İstiyorum|Son ürünler|Benzerlerine bak).*$/i, '').trim();
+      if (!label || seen.has(label)) return;
+      seen.add(label);
+      const cls = (b.className || '').toString();
+      const notAvailable = /Mevcut değil|İstiyorum/i.test(raw);
+      const inStock = !notAvailable
+        && /selectable/i.test(cls)
+        && !/disabled|unavailable|notify|soldout/i.test(cls)
+        && !b.disabled;
+      domSizes.push({ label, inStock });
+    });
+    if (domSizes.length) { out.sizes = domSizes; out.inStock = domSizes.some((s) => s.inStock); }
+  } catch (e) {}
+  try {
+    if (!out.sizes.length && !out.inStock) {
+      const addBtn = Array.from(document.querySelectorAll('button'))
+        .some((b) => /^(EKLE|ADD)$/i.test((b.innerText || '').trim()));
+      if (addBtn) out.inStock = true;
+    }
+  } catch (e) {}
+`;
+
+export const MANGO_PAGE_SCRIPT = STORE_CORE_SCRIPT + MANGO_BLOCK + "\n  return out;\n";

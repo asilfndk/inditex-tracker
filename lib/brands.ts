@@ -10,6 +10,7 @@ export const BRAND_LABELS: Record<Brand, string> = {
   boyner: "Boyner",
   wunder: "Wunder",
   superstep: "Superstep",
+  mango: "Mango",
 };
 
 export function formatPrice(

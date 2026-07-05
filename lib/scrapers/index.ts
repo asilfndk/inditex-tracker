@@ -9,6 +9,7 @@ import { VictoriassecretScraper } from "./victoriassecret";
 import { BoynerScraper } from "./boyner";
 import { WunderScraper } from "./wunder";
 import { SuperstepScraper } from "./superstep";
+import { MangoScraper } from "./mango";
 import type { ScrapeResult } from "./types";
 
 const scrapers: BaseScraper[] = [
@@ -21,6 +22,7 @@ const scrapers: BaseScraper[] = [
   new BoynerScraper(),
   new WunderScraper(),
   new SuperstepScraper(),
+  new MangoScraper(),
 ];
 
 /** URL'i işleyebilecek scraper'ı döndür (yoksa null) */

@@ -36,6 +36,7 @@ const LISTINGS = [
   "https://www.boyner.com.tr/nike-if1448-010-m-nk-df-acd25-short-kp-b-siyah-erkek-sort-p-15917358",
   "https://wunder.com.tr/classic-england-polo-white-ubmw0502fa328-wth0001",
   "https://www.superstep.com.tr/urun/adidas-handball-spezial-kadin-bej-spor-ayakkabi/ki6678/",
+  "https://shop.mango.com/tr/tr/p/kadın/etek/anvelop-kesim-sort-etek/27094095/99/00",
 ];
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));

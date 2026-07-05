@@ -17,6 +17,7 @@ export const BRANDS = [
   "boyner",
   "wunder",
   "superstep",
+  "mango",
 ] as const;
 export type Brand = (typeof BRANDS)[number];
 
