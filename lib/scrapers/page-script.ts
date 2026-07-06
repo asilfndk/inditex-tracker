@@ -551,9 +551,16 @@ export const VICTORIASSECRET_PAGE_SCRIPT =
 
 /**
  * Mango (Next.js/RSC) bloğu: JSON-LD yok; ad/görsel og meta'dan (çekirdek okur).
- * Fiyat: indirimli üründe İKİ \`itemprop="price"\` meta'sı var — ilki üstü çizili
- * eski fiyat, SONUNCUSU gerçek satış fiyatı (çekirdek ilkini aldığı için düzeltilir).
- * Beden: \`SizeItem-module\` butonları; stokta olan "selectable" modifier'ı taşır.
+ * Birincil kaynak RSC flight payload'ı (\`self.__next_f\`): renk başına temiz
+ * beden listesi (\`available\`/\`isDelayed\`), fiyat (\`prices.price\`) ve görsel
+ * (\`looks[*].media[0].src\`) içerir; \`out.colorVariants\` buradan doldurulur
+ * (renk URL'i = pathname'de \`.../{productId}/{colorId}/{look}\` renk segmenti).
+ * \`isDelayed:true\` stokta sayılır — sadece kargo süresi uzundur; DOM'da bu
+ * bedenlerin buton metnine "Kargoya teslimat tahmini N iş günüdür" eklendiği
+ * için DOM okuma yalnızca payload bulunamazsa çalışan yedektir ve etiketler
+ * beden token'ına uymuyorsa elenir.
+ * Fiyat yedeği: indirimli üründe İKİ \`itemprop="price"\` meta'sı var — ilki üstü
+ * çizili eski fiyat, SONUNCUSU gerçek satış fiyatı.
  * Bedensiz ürünlerde (çanta vb.) availability meta'sı yok — EKLE/ADD butonu stok sinyali.
  */
 const MANGO_BLOCK = `
@@ -571,14 +578,119 @@ const MANGO_BLOCK = `
       if (!isNaN(v)) out.price = v;
     }
   } catch (e) {}
+
+  // 1) RSC flight payload: renkler + renk başına beden/fiyat/görsel.
   try {
+    let flight = '';
+    if (Array.isArray(self.__next_f)) {
+      flight = self.__next_f
+        .map((x) => (Array.isArray(x) && typeof x[1] === 'string') ? x[1] : '')
+        .join('');
+    }
+    if (flight.indexOf('"colors":[') === -1) {
+      // Hydration __next_f'i boşaltır; veri script'lerdeki
+      // self.__next_f.push([1,"..."]) string literal'lerinde escape'li durur —
+      // literal'i kesip JSON.parse ile çöz.
+      const parts = [];
+      document.querySelectorAll('script').forEach((s) => {
+        const t = s.textContent || '';
+        const a = t.indexOf('__next_f.push([1,"');
+        if (a === -1) return;
+        const b = t.lastIndexOf('"])');
+        if (b <= a) return;
+        try { parts.push(JSON.parse('"' + t.slice(a + 18, b) + '"')); } catch (e) {}
+      });
+      flight = parts.join('');
+    }
+    // '"colors":' sonrasındaki JSON dizisini string-bilinçli dengeli taramayla kes.
+    const sliceArray = (text, from) => {
+      let depth = 0, inStr = false, esc = false;
+      for (let k = from; k < text.length; k++) {
+        const ch = text[k];
+        if (esc) { esc = false; continue; }
+        if (ch === '\\\\') { esc = true; continue; }
+        if (ch === '"') { inStr = !inStr; continue; }
+        if (inStr) continue;
+        if (ch === '[') depth++;
+        else if (ch === ']') { depth--; if (!depth) return text.slice(from, k + 1); }
+      }
+      return null;
+    };
+    let cols = null;
+    let idx = 0;
+    while (!cols) {
+      const at = flight.indexOf('"colors":[', idx);
+      if (at === -1) break;
+      idx = at + 1;
+      const seg = sliceArray(flight, at + 9);
+      if (!seg) continue;
+      try {
+        const arr = JSON.parse(seg);
+        if (Array.isArray(arr) && arr.length && arr[0] && arr[0].label && Array.isArray(arr[0].sizes)) cols = arr;
+      } catch (e) {}
+    }
+    if (cols) {
+      const path = location.pathname.replace(/\\/+$/, '');
+      const variants = cols.map((c) => {
+        let imageUrl = null;
+        if (c.looks) {
+          for (const k in c.looks) {
+            const media = c.looks[k] && c.looks[k].media;
+            if (Array.isArray(media) && media.length && media[0].src) { imageUrl = media[0].src; break; }
+          }
+        }
+        let url = null;
+        const parts = path.split('/');
+        if (parts.length >= 3) {
+          parts[parts.length - 2] = String(c.id);
+          url = location.origin + parts.join('/');
+        }
+        return {
+          color: String(c.label || c.id || ''),
+          url,
+          imageUrl,
+          sizes: Array.isArray(c.sizes)
+            ? c.sizes
+                .map((s) => ({ label: String(s.label || s.shortDescription || '').trim(), inStock: !!s.available }))
+                .filter((s) => s.label)
+            : [],
+          price: (c.prices && typeof c.prices.price === 'number') ? c.prices.price : null,
+        };
+      }).filter((v) => v.color);
+      if (variants.length) {
+        out.colorVariants = variants;
+        out.colors = variants.map((v) => v.color);
+        // URL'deki renk segmenti (.../{productId}/{colorId}/{look}) aktif rengi belirler.
+        const segs = path.split('/').filter(Boolean);
+        const colorId = segs.length >= 2 ? segs[segs.length - 2] : null;
+        let activeIdx = cols.findIndex((c) => String(c.id) === String(colorId));
+        if (activeIdx < 0) activeIdx = 0;
+        const active = variants[activeIdx];
+        if (active.sizes.length) {
+          out.sizes = active.sizes;
+          out.inStock = active.sizes.some((s) => s.inStock);
+        }
+        if (active.price != null) out.price = active.price;
+        if (active.imageUrl) out.imageUrl = active.imageUrl;
+      }
+    }
+  } catch (e) {}
+
+  // 2) DOM yedeği — yalnızca payload beden vermediyse.
+  try {
+    if (!out.sizes.length) {
+    const SIZE_TOKEN = /^(XXS|XS|S|M|L|XL|XXL|XXXL|[1-6]XL|ONE SIZE|TEK BEDEN|\\d{1,3}([.,]\\d{1,2})?)$/i;
     const seen = new Set();
     const domSizes = [];
     document.querySelectorAll('button[class*="SizeItem-module"]').forEach((b) => {
       const raw = (b.textContent || '').replace(/\\s+/g, ' ').trim();
-      // Tükenmiş bedende buton metnine durum eklenir: "36Mevcut değil. İstiyorum!".
-      const label = raw.replace(/\\s*(Mevcut değil|İstiyorum|Son ürünler|Benzerlerine bak).*$/i, '').trim();
-      if (!label || seen.has(label)) return;
+      // Buton metnine durum eklenir: "36Mevcut değil. İstiyorum!",
+      // "XLKargoya teslimat tahmini 5 iş günüdür", "S2-4 iş günü içinde teslimat".
+      const label = raw
+        .replace(/\\s*(Mevcut değil|İstiyorum|Son ürünler|Benzerlerine bak|Kargoya teslimat|iş günü|teslimat|Bildirim al|Beni bilgilendir).*$/i, '')
+        .replace(/\\s*\\d+\\s*[-–]\\s*\\d*$/, '')
+        .trim();
+      if (!label || !SIZE_TOKEN.test(label) || seen.has(label)) return;
       seen.add(label);
       const cls = (b.className || '').toString();
       const notAvailable = /Mevcut değil|İstiyorum/i.test(raw);
@@ -589,6 +701,7 @@ const MANGO_BLOCK = `
       domSizes.push({ label, inStock });
     });
     if (domSizes.length) { out.sizes = domSizes; out.inStock = domSizes.some((s) => s.inStock); }
+    }
   } catch (e) {}
   try {
     if (!out.sizes.length && !out.inStock) {

@@ -21,12 +21,29 @@ interface Props {
   alreadyTracked?: boolean;
 }
 
-/** URL'in v1 parametresiyle eşleşen varyantın rengi; yoksa ilk renk. */
+/**
+ * URL ile eşleşen varyantın rengi; yoksa ilk renk.
+ * Zara varyantı `?v1=` parametresiyle, Mango path'teki renk segmentiyle ayrışır —
+ * ikisi de varyant `url`'ine gömülü olduğundan önce v1, sonra path karşılaştırılır.
+ */
 function defaultColor(result: ScrapeResult, url: string): string | null {
   try {
-    const v1 = new URL(url).searchParams.get("v1");
+    const u = new URL(url);
+    const v1 = u.searchParams.get("v1");
     if (v1 && result.colorVariants) {
       const m = result.colorVariants.find((v) => v.url?.includes(`v1=${v1}`));
+      if (m) return m.color;
+    }
+    if (result.colorVariants) {
+      const here = u.pathname.replace(/\/+$/, "");
+      const m = result.colorVariants.find((v) => {
+        if (!v.url) return false;
+        try {
+          return new URL(v.url).pathname.replace(/\/+$/, "") === here;
+        } catch {
+          return false;
+        }
+      });
       if (m) return m.color;
     }
   } catch {
