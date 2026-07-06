@@ -45,6 +45,21 @@ function loadElectron(): ElectronModule {
   }
 }
 
+/**
+ * Görsel/medya/font isteklerini iptal et: çıkarım yalnızca DOM + JSON-LD okur
+ * (imageUrl da meta'dan gelir), sayfa yükü büyük oranda düşer. script/css/xhr
+ * serbest — SPA state ve Akamai sensörü çalışmaya devam etmeli.
+ */
+function blockHeavyResources(win: import("electron").BrowserWindow): void {
+  win.webContents.session.webRequest.onBeforeRequest(
+    { urls: ["*://*/*"] },
+    (details, cb) => {
+      const t = details.resourceType;
+      cb({ cancel: t === "image" || t === "media" || t === "font" });
+    },
+  );
+}
+
 /** Akamai bot korumasını aşmak için gerçekçi tarayıcı header'ları (oturum başına bir kez). */
 function applyRealisticHeaders(win: import("electron").BrowserWindow): void {
   win.webContents.session.webRequest.onBeforeSendHeaders((details, cb) => {
@@ -82,10 +97,14 @@ export async function scrapeWithBrowser(
         // normal gizli pencere daha güvenilir.
         nodeIntegration: false,
         contextIsolation: true,
+        // Ayrı session: header hook'u ve kaynak filtresi ana pencerenin
+        // (Next.js içeriği, ürün görselleri) session'ına sızmasın.
+        partition: "scrape",
       },
     });
     win.webContents.setUserAgent(USER_AGENT);
     applyRealisticHeaders(win);
+    blockHeavyResources(win);
 
     const raw = await withTimeout(
       loadAndExtract(win, url, pageScript),
@@ -114,9 +133,20 @@ async function loadAndExtract(
   // ana çerçeveyi "failed" işaretler) durumlarında DOM yine de render olur → yut ve
   // çıkarıma devam et. Yalnızca gerçek ağ/iç hataları (DNS, bağlantı yok) yukarı taşı.
   const SOFT_LOAD_ERRORS = new Set(["ERR_ABORTED", "ERR_FAILED"]);
-  await win.loadURL(url, { userAgent: USER_AGENT }).catch((e: { code?: string }) => {
-    if (e?.code && !SOFT_LOAD_ERRORS.has(e.code)) throw e;
-  });
+  // loadURL, did-finish-load'a bağlı: ağır sayfalarda (Zara — analytics, bot
+  // sensörleri, uzun süren istekler) timeout içinde hiç çözülmeyebilir. Çıkarım
+  // için DOM yeterli → dom-ready ile yarıştır, hangisi önce gelirse devam et.
+  const domReady = new Promise<void>((resolve) =>
+    win.webContents.once("dom-ready", () => resolve()),
+  );
+  const load = win
+    .loadURL(url, { userAgent: USER_AGENT })
+    .catch((e: { code?: string }) => {
+      if (e?.code && !SOFT_LOAD_ERRORS.has(e.code)) throw e;
+    });
+  await Promise.race([load, domReady]);
+  // Yarışı dom-ready kazanırsa load sahipsiz kalıp reddedilebilir — yut.
+  void load.catch(() => {});
   // Sayfanın JS state'ini (JSON-LD) doldurması için bekleme.
   await new Promise((r) => setTimeout(r, 3000));
   // async sarmalayıcı: marka scriptleri beden panelini açmak için await edebilir.
