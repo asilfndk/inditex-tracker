@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { AlertCircle, RefreshCw, Settings2, X } from "lucide-react";
 import { CheckBar } from "@/components/CheckBar";
+import { PriceHistory } from "@/components/PriceHistory";
 import { ProductResult } from "@/components/ProductResult";
 import { SettingsPanel } from "@/components/SettingsPanel";
 import { Watchlist } from "@/components/Watchlist";
@@ -62,6 +63,29 @@ export default function Home() {
     setProducts(await getApi().listProducts());
   }, []);
 
+  // İzleme listesinden seçim: DB'deki son durum anında gösterilir,
+  // canlı veri arka planda tazelenir (kullanıcı scrape'i beklemez).
+  const selectProduct = useCallback((p: TrackedProduct) => {
+    const token = ++selectionToken.current;
+    setLoading(false);
+    setError(null);
+    setSelected(p);
+    setCurrentUrl(p.url);
+    setResult(buildCachedResult(p));
+    setRefreshing(true);
+    getApi()
+      .checkUrl(p.url)
+      .then((res) => {
+        if (selectionToken.current === token) setResult(res);
+      })
+      .catch(() => {
+        // Canlı kontrol başarısız: önbellek görünümü kalır, panel bozulmaz.
+      })
+      .finally(() => {
+        if (selectionToken.current === token) setRefreshing(false);
+      });
+  }, []);
+
   useEffect(() => {
     if (!hasApi()) return;
     // İlk yükleme: setState'i await sonrası callback'te yap (effect gövdesinde
@@ -76,12 +100,22 @@ export default function Home() {
     const offProducts = getApi().onProductsChanged(refresh);
     // Tray menüsündeki "Ayarlar…" ayar modalını açar.
     const offSettings = getApi().onOpenSettings(() => setSettingsOpen(true));
+    // Bildirim tıklaması: ilgili ürünü panelde aç (taze listeden bul —
+    // bildirim, renderer listeyi yenilemeden önce gelebilir).
+    const offOpenProduct = getApi().onOpenProduct(async (id) => {
+      const list = await getApi().listProducts();
+      if (!active) return;
+      setProducts(list);
+      const p = list.find((x) => x.id === id);
+      if (p) selectProduct(p);
+    });
     return () => {
       active = false;
       offProducts();
       offSettings();
+      offOpenProduct();
     };
-  }, [refresh]);
+  }, [refresh, selectProduct]);
 
   // Panelde gösterilen ürün listeden kaldırılınca (çöp butonu, arka plan
   // değişikliği…) sağ paneli de kapat — silinmiş ürünü göstermeye devam etme.
@@ -130,29 +164,6 @@ export default function Home() {
     } finally {
       if (selectionToken.current === token) setLoading(false);
     }
-  }
-
-  // İzleme listesinden seçim: DB'deki son durum anında gösterilir,
-  // canlı veri arka planda tazelenir (kullanıcı scrape'i beklemez).
-  function selectProduct(p: TrackedProduct) {
-    const token = ++selectionToken.current;
-    setLoading(false);
-    setError(null);
-    setSelected(p);
-    setCurrentUrl(p.url);
-    setResult(buildCachedResult(p));
-    setRefreshing(true);
-    getApi()
-      .checkUrl(p.url)
-      .then((res) => {
-        if (selectionToken.current === token) setResult(res);
-      })
-      .catch(() => {
-        // Canlı kontrol başarısız: önbellek görünümü kalır, panel bozulmaz.
-      })
-      .finally(() => {
-        if (selectionToken.current === token) setRefreshing(false);
-      });
   }
 
   // Takibe alındıktan sonra sağ paneli ve link input'unu temizle.
@@ -257,19 +268,25 @@ export default function Home() {
                 </div>
               )}
               {result ? (
-                <ProductResult
-                  key={currentUrl + result.source}
-                  url={currentUrl}
-                  result={result}
-                  refreshing={refreshing}
-                  initialSize={selected?.targetSize ?? null}
-                  initialColor={selected?.targetColor ?? null}
-                  alreadyTracked={selected != null}
-                  onTracked={() => {
-                    refresh();
-                    clearResult();
-                  }}
-                />
+                <>
+                  <ProductResult
+                    key={currentUrl + result.source}
+                    url={currentUrl}
+                    result={result}
+                    refreshing={refreshing}
+                    initialSize={selected?.targetSize ?? null}
+                    initialColor={selected?.targetColor ?? null}
+                    alreadyTracked={selected != null}
+                    onTracked={() => {
+                      refresh();
+                      clearResult();
+                    }}
+                  />
+                  {/* key: ürün değişince eski grafik anlık görünmesin diye remount */}
+                  {selected && (
+                    <PriceHistory key={selected.id} productId={selected.id} />
+                  )}
+                </>
               ) : (
                 !error && !loading && <EmptyState />
               )}

@@ -1,17 +1,13 @@
-import { Notification, app, shell } from "electron";
-import { openSettings } from "./app-state";
+import { Notification, app } from "electron";
+import { openProduct, openSettings } from "./app-state";
 
 /** Yerel macOS bildirimleri + dock rozeti. */
 
-function notify(title: string, body: string, url?: string): void {
+function notify(title: string, body: string, onClick?: () => void): void {
   if (!Notification.isSupported()) return;
   // macOS'ta açık bir sistem sesi ver (yalnızca silent:false her zaman çalmıyor).
   const n = new Notification({ title, body, silent: false, sound: "Glass" });
-  if (url) {
-    n.on("click", () => {
-      shell.openExternal(url);
-    });
-  }
+  if (onClick) n.on("click", onClick);
   n.show();
 }
 
@@ -20,14 +16,20 @@ export function notifyTest(): void {
   notify("Atelier", "Bildirimler çalışıyor ✅");
 }
 
-export function notifyRestock(name: string, url: string, size?: string | null): void {
+export function notifyRestock(
+  name: string,
+  productId: number,
+  size?: string | null,
+): void {
   const sizeStr = size ? ` (${size})` : "";
-  notify("Stokta! 🎉", `${name}${sizeStr} artık stokta.`, url);
+  notify("Stokta! 🎉", `${name}${sizeStr} artık stokta.`, () =>
+    openProduct(productId),
+  );
 }
 
 export function notifyPriceDrop(
   name: string,
-  url: string,
+  productId: number,
   oldPrice: number,
   newPrice: number,
 ): void {
@@ -37,10 +39,8 @@ export function notifyPriceDrop(
       currency: "TRY",
       maximumFractionDigits: 0,
     }).format(v);
-  notify(
-    "Fiyat düştü ↓",
-    `${name}: ${fmt(oldPrice)} → ${fmt(newPrice)}`,
-    url,
+  notify("Fiyat düştü ↓", `${name}: ${fmt(oldPrice)} → ${fmt(newPrice)}`, () =>
+    openProduct(productId),
   );
 }
 

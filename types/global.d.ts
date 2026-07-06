@@ -122,6 +122,7 @@ export interface InditexApi {
   openExternal(url: string): Promise<{ ok: true }>;
   onProductsChanged(cb: () => void): () => void;
   onOpenSettings(cb: () => void): () => void;
+  onOpenProduct(cb: (id: number) => void): () => void;
   getAppVersion(): Promise<string>;
   checkForUpdate(): Promise<UpdateState>;
   downloadUpdate(): Promise<UpdateState>;

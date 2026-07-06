@@ -43,7 +43,7 @@ async function checkOne(p: TrackedProduct): Promise<void> {
 
   // Stok geçişi: yok → var (yalnızca bir kez bildir — edge case #8)
   if (s.notifyStock && p.trackStock && !wasInStock && nowInStock) {
-    notifyRestock(p.name ?? "Ürün", p.url, p.targetSize);
+    notifyRestock(p.name ?? "Ürün", p.id, p.targetSize);
   }
 
   // Hedef bedenin kendi fiyatı varsa (ör. Sephora ml varyantları) onu izle;
@@ -66,7 +66,7 @@ async function checkOne(p: TrackedProduct): Promise<void> {
       baseline != null &&
       effPrice < baseline
     ) {
-      notifyPriceDrop(p.name ?? "Ürün", p.url, baseline, effPrice);
+      notifyPriceDrop(p.name ?? "Ürün", p.id, baseline, effPrice);
     }
     // Baseline bakımı bildirim anahtarlarından bağımsız — hep doğru kalsın.
     if (baseline == null || effPrice < baseline) {
@@ -77,15 +77,22 @@ async function checkOne(p: TrackedProduct): Promise<void> {
   recordCheck(p.id, nowInStock, effPrice, res.sizes, res.colors, res.imageUrl);
 }
 
-/** Tüm takip listesini sırayla kontrol et (browser eşzamanlılığı zaten sınırlı). */
+// Tur içi eşzamanlılık: browser semaforunu (2) doldurur + API-yolu kontrollerine pay bırakır.
+const CHECK_CONCURRENCY = 3;
+
+/** Tüm takip listesini paralel kontrol et (browser eşzamanlılığı ayrıca sınırlı). */
 export async function checkAll(): Promise<void> {
   if (running) return; // çakışan turları engelle
   running = true;
   try {
-    const products = listProducts();
-    for (const p of products) {
-      await checkOne(p);
-    }
+    const queue = listProducts();
+    await Promise.all(
+      Array.from({ length: CHECK_CONCURRENCY }, async () => {
+        for (let p = queue.shift(); p; p = queue.shift()) {
+          await checkOne(p);
+        }
+      }),
+    );
     refreshBadge();
     emitProductsChanged();
   } finally {

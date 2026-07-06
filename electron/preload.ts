@@ -23,6 +23,12 @@ const api = {
     ipcRenderer.on("products-changed", handler);
     return () => ipcRenderer.removeListener("products-changed", handler);
   },
+  // Bildirim tıklanınca ilgili ürünü panelde aç.
+  onOpenProduct: (cb: (id: number) => void) => {
+    const handler = (_e: unknown, id: number) => cb(id);
+    ipcRenderer.on("open-product", handler);
+    return () => ipcRenderer.removeListener("open-product", handler);
+  },
   // Tray menüsündeki "Ayarlar…" tıklanınca ayar modalını aç.
   onOpenSettings: (cb: () => void) => {
     const handler = () => cb();

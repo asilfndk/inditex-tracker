@@ -57,6 +57,15 @@ export function openSettings(): void {
   }, 300);
 }
 
+/** Pencereyi öne al ve renderer'da ilgili ürünü seçili aç (bildirim tıklaması). */
+export function openProduct(id: number): void {
+  showWindow();
+  // Pencere yeni oluşturulduysa renderer hazır olana dek küçük gecikme.
+  setTimeout(() => {
+    getMainWindow()?.webContents.send("open-product", id);
+  }, 300);
+}
+
 export function onProductsChanged(fn: () => void): void {
   productListeners.push(fn);
 }
