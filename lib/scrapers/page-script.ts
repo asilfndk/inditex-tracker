@@ -1067,6 +1067,10 @@ export const SEPHORA_PAGE_SCRIPT = STORE_CORE_SCRIPT + SEPHORA_BLOCK + "\n  retu
  * - \`"variants":[{color, colorUrl (swatch görseli), shareLink (renge özel URL)}]\`
  *   → \`colorVariants\` (renk seçilince takip renge özel URL ile yapılır).
  *   Varyant başına fiyat/stok payload'da yok — alanlar atlanır, UI ürün geneline düşer.
+ *   \`imageUrl\` de atlanır: payload'da varyantın GERÇEK ürün fotoğrafı yok, yalnızca
+ *   renk çipi (swatch, \`...-variant_...jpg\`) var — swatch ürün görseli olarak
+ *   gösterilmemeli. UI ana fotoğrafa düşer; takip edilen varyantı scheduler kendi
+ *   sayfasından scrape edince (\`recordCheck\`) gerçek fotoğraf kendiliğinden gelir.
  * Kozmetik: beden yok, \`sizes\` boş kalır.
  */
 const GRATIS_BLOCK = `
@@ -1153,7 +1157,6 @@ const GRATIS_BLOCK = `
       out.colorVariants = vars.map((v) => ({
         color: String(v.color || '').trim(),
         url: v.shareLink || null,
-        imageUrl: v.colorUrl || null,
       })).filter((v) => v.color);
       out.colors = out.colorVariants.map((v) => v.color);
     }
