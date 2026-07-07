@@ -17,8 +17,15 @@ interface Props {
   /** İzleme listesinden açılınca hedef beden/renk ön-seçili gelir. */
   initialSize?: string | null;
   initialColor?: string | null;
-  /** Ürün zaten takipte — "Takibe Al" yerine "Zaten takipte" gösterilir. */
-  alreadyTracked?: boolean;
+  /**
+   * Takipteki kombolar (url+beden+renk). Seçili kombo bunlardan biriyle
+   * eşleşirse buton "Zaten takipte" olur; farklı kombo seçilince aktifleşir.
+   */
+  tracked?: {
+    url: string;
+    targetSize: string | null;
+    targetColor: string | null;
+  }[];
 }
 
 /**
@@ -59,7 +66,7 @@ export function ProductResult({
   refreshing = false,
   initialSize = null,
   initialColor = null,
-  alreadyTracked = false,
+  tracked = [],
 }: Props) {
   const [size, setSize] = useState<string | null>(initialSize);
   const [color, setColor] = useState<string | null>(
@@ -76,6 +83,14 @@ export function ProductResult({
     : (variant?.inStock ?? result.inStock);
   // Takip + "Sitede aç" renge özel URL ile — scheduler doğru varyantı kontrol eder.
   const activeUrl = variant?.url ?? url;
+  // Repo'daki dedup kuralıyla aynı ('' coalescing dahil): sadece seçili kombo
+  // zaten takipteyse buton kilitlenir; farklı beden/renk seçilince açılır.
+  const alreadyTracked = tracked.some(
+    (t) =>
+      t.url === activeUrl &&
+      (t.targetSize ?? "") === (size ?? "") &&
+      (t.targetColor ?? "") === (color ?? ""),
+  );
 
   function selectColor(c: string | null) {
     setColor(c);

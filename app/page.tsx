@@ -276,7 +276,7 @@ export default function Home() {
                     refreshing={refreshing}
                     initialSize={selected?.targetSize ?? null}
                     initialColor={selected?.targetColor ?? null}
-                    alreadyTracked={selected != null}
+                    tracked={products}
                     onTracked={() => {
                       refresh();
                       clearResult();
