@@ -307,10 +307,9 @@ function EmptyState() {
         Stock &amp; price tracking
       </p>
       <h2 className="mt-3 max-w-md font-display text-4xl font-light leading-[1.1] tracking-tight text-ink">
-        Never wait for a size to{" "}
-        <span className="font-semibold italic text-signal">come back</span>{" "}
-        or a price to{" "}
-        <span className="font-semibold italic text-price-drop">drop</span>{" "}
+        Never miss a{" "}
+        <span className="font-semibold italic text-signal">restock</span> or a{" "}
+        <span className="font-semibold italic text-price-drop">price drop</span>{" "}
         again.
       </h2>
       <p className="mt-4 max-w-sm text-sm leading-relaxed text-ink-soft">
