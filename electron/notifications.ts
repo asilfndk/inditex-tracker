@@ -1,19 +1,19 @@
 import { Notification, app } from "electron";
 import { openProduct, openSettings } from "./app-state";
 
-/** Yerel macOS bildirimleri + dock rozeti. */
+/** Local macOS notifications + dock badge. */
 
 function notify(title: string, body: string, onClick?: () => void): void {
   if (!Notification.isSupported()) return;
-  // macOS'ta açık bir sistem sesi ver (yalnızca silent:false her zaman çalmıyor).
+  // Play an explicit system sound on macOS (silent:false alone does not always play).
   const n = new Notification({ title, body, silent: false, sound: "Glass" });
   if (onClick) n.on("click", onClick);
   n.show();
 }
 
-/** Ayarlardan tetiklenen test bildirimi — izin/kayıt akışını doğrulamak için. */
+/** Test notification triggered from settings — verifies the permission/registration flow. */
 export function notifyTest(): void {
-  notify("Atelier", "Bildirimler çalışıyor ✅");
+  notify("Atelier", "Notifications are working ✅");
 }
 
 export function notifyRestock(
@@ -22,7 +22,7 @@ export function notifyRestock(
   size?: string | null,
 ): void {
   const sizeStr = size ? ` (${size})` : "";
-  notify("Stokta! 🎉", `${name}${sizeStr} artık stokta.`, () =>
+  notify("Back in stock! 🎉", `${name}${sizeStr} is in stock again.`, () =>
     openProduct(productId),
   );
 }
@@ -39,17 +39,17 @@ export function notifyPriceDrop(
       currency: "TRY",
       maximumFractionDigits: 0,
     }).format(v);
-  notify("Fiyat düştü ↓", `${name}: ${fmt(oldPrice)} → ${fmt(newPrice)}`, () =>
+  notify("Price dropped ↓", `${name}: ${fmt(oldPrice)} → ${fmt(newPrice)}`, () =>
     openProduct(productId),
   );
 }
 
-/** Yeni uygulama sürümü bulununca — tıklanınca ayarlar (indirme butonu) açılır. */
+/** When a new app version is found — clicking opens settings (download button). */
 export function notifyUpdateAvailable(version: string): void {
   if (!Notification.isSupported()) return;
   const n = new Notification({
-    title: "Güncelleme mevcut",
-    body: `Atelier v${version} indirilebilir. Ayarlar'dan indirebilirsin.`,
+    title: "Update available",
+    body: `Atelier v${version} is available. You can download it from Settings.`,
     silent: false,
     sound: "Glass",
   });
@@ -57,7 +57,7 @@ export function notifyUpdateAvailable(version: string): void {
   n.show();
 }
 
-/** Dock simgesinde stokta-olan-ürün sayısı rozeti. */
+/** Badge on the dock icon with the count of in-stock products. */
 export function setDockBadge(count: number): void {
   if (process.platform !== "darwin" || !app.dock) return;
   app.dock.setBadge(count > 0 ? String(count) : "");

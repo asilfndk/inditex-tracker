@@ -6,14 +6,14 @@ directories:
   output: release
   buildResources: resources
 
-# Pakete girecek dosyalar (renderer export + electron bundle + bağımlılıklar)
+# Files that go into the package (renderer export + electron bundle + dependencies)
 files:
   - dist-electron/**/*
   - out/**/*
   - package.json
 
-# Migration klasörünü + runtime ikonları .app içinde Resources altına kopyala
-# (db-init.ts ve tray.ts/main.ts process.resourcesPath altında arar)
+# Copy the migrations folder + runtime icons under Resources inside the .app
+# (db-init.ts and tray.ts/main.ts look under process.resourcesPath)
 extraResources:
   - from: db/migrations
     to: db/migrations
@@ -24,21 +24,21 @@ extraResources:
   - from: resources/icon.png
     to: icon.png
 
-# Paketten sonra .app'i bundle id'siyle eşleşen ad-hoc imzayla yeniden imzala
-# (macOS bildirimleri için; ayrıntı: scripts/afterPack.cjs)
+# After packaging, re-sign the .app with an ad-hoc signature matching the bundle id
+# (needed for macOS notifications; details: scripts/afterPack.cjs)
 afterPack: scripts/afterPack.cjs
 
 asar: true
-# Native modül (.node) asar dışına çıkarılmalı ki yüklenebilsin
+# The native module (.node) must be unpacked from asar so it can load
 asarUnpack:
   - "**/node_modules/better-sqlite3/**"
 
 mac:
   icon: resources/icon.icns
-  # Menü-bar (agent) uygulaması: Dock'ta ve Cmd+Tab'da görünme.
+  # Menu-bar (agent) app: do not appear in the Dock or Cmd+Tab.
   extendInfo:
     LSUIElement: 1
-  # Her iki .dmg adında da mimari görünsün (x64 varsayılan kabul edilip ek atlanmasın)
+  # Show the architecture in both .dmg names (don't treat x64 as default and drop the suffix)
   artifactName: ${productName}-${version}-${arch}.dmg
   target:
     - target: dmg
@@ -46,8 +46,8 @@ mac:
         - arm64
         - x64
   category: public.app-category.lifestyle
-  # İmzasız kişisel dağıtım (Apple Developer hesabı gerektirmez)
+  # Unsigned personal distribution (requires no Apple Developer account)
   identity: null
 
-# better-sqlite3'ü hedef Electron ABI'sine yeniden derle
+# Rebuild better-sqlite3 against the target Electron ABI
 npmRebuild: true

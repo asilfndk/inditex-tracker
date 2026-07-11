@@ -1,9 +1,9 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  // Electron renderer: statik export (out/) — sunucu çalışmaz, her şey IPC üzerinden.
+  // Electron renderer: static export (out/) — no server runs, everything goes over IPC.
   output: "export",
-  // file:// üzerinden yüklendiğinden göreli yollar gerekir.
+  // Loaded over file://, so relative paths are required.
   assetPrefix: "./",
   images: { unoptimized: true },
 };

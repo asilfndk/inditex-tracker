@@ -1,13 +1,14 @@
 import type { InditexApi } from "@/types/global";
 
 /**
- * Renderer'dan main sürecine erişim. Electron dışında (ör. tarayıcıda
- * localhost:3000) `window.api` yoktur; bu durumda anlamlı hata veririz.
+ * Access to the main process from the renderer. Outside Electron (e.g. in a
+ * browser at localhost:3000) `window.api` does not exist; we throw a
+ * meaningful error in that case.
  */
 export function getApi(): InditexApi {
   if (typeof window === "undefined" || !window.api) {
     throw new Error(
-      "Uygulama köprüsü bulunamadı. Bu pencereyi Atelier uygulaması içinden açın.",
+      "App bridge not found. Open this window from inside the Atelier app.",
     );
   }
   return window.api;

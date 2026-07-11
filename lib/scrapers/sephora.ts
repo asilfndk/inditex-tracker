@@ -20,7 +20,7 @@ export class SephoraScraper extends BaseScraper {
       const last = u.pathname.split("/").filter(Boolean).pop() ?? "";
       if (!last.endsWith(".html")) return null;
       const slug = last.replace(/\.html$/, "");
-      // Slug kuyruğundaki 5+ haneli sayı ürün kodudur (örn. ...-733611)
+      // The 5+ digit number at the slug tail is the product code (e.g. ...-733611)
       const m = slug.match(/-(\d{5,})$/);
       const productId = m ? m[1] : slug;
       if (!productId) return null;
@@ -31,7 +31,7 @@ export class SephoraScraper extends BaseScraper {
   }
 
   async fetchFromApi(parsed: ParsedProduct): Promise<ProductStock | null> {
-    // Akamai istek katmanını engelliyor (403 edgesuite) — doğrudan Katman 2.
+    // Akamai blocks the request layer (403 edgesuite) — go straight to Layer 2.
     void parsed;
     return null;
   }

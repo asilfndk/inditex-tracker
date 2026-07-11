@@ -8,20 +8,20 @@ interface Props {
   sizes: SizeAvailability[];
   selected?: string | null;
   onSelect?: (label: string | null) => void;
-  /** Varyant fiyatları (size.price) gösterilirken kullanılacak para birimi */
+  /** Currency used when showing variant prices (size.price) */
   currency?: string | null;
 }
 
 /**
- * İmza öğesi: bedenlerin monospace stok matrisi.
- * Stokta = dolu mürekkep hücre · tükendi = üstü çizili soluk hücre.
- * Seçilebilir (takip için hedef beden).
+ * Signature element: the monospace stock matrix of sizes.
+ * In stock = solid ink cell · sold out = struck-through faded cell.
+ * Selectable (target size for tracking).
  */
 export function StockMatrix({ sizes, selected, onSelect, currency }: Props) {
   if (sizes.length === 0) {
     return (
       <p className="font-mono text-xs uppercase tracking-widest text-muted">
-        Beden bilgisi okunamadı
+        Could not read size info
       </p>
     );
   }
@@ -41,7 +41,7 @@ export function StockMatrix({ sizes, selected, onSelect, currency }: Props) {
             onClick={() => onSelect?.(isSel ? null : s.label)}
             aria-pressed={isSel}
             title={
-              (s.inStock ? "Stokta" : "Tükendi (yine de takip edilebilir)") +
+              (s.inStock ? "In stock" : "Sold out (can still be tracked)") +
               (priceLabel ? ` · ${priceLabel}` : "")
             }
             className={cn(

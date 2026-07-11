@@ -7,13 +7,13 @@ import * as schema from "./schema";
 const dbPath =
   process.env.DATABASE_URL?.replace(/^file:/, "") ?? "./data/app.db";
 
-// Veritabanı klasörünü garanti et
+// Ensure the database folder exists
 const dir = dirname(dbPath);
 if (dir && dir !== "." && !existsSync(dir)) {
   mkdirSync(dir, { recursive: true });
 }
 
-// Next.js dev hot-reload'da tek bağlantı tut
+// Keep a single connection across Next.js dev hot-reloads
 const globalForDb = globalThis as unknown as {
   sqlite?: Database.Database;
 };

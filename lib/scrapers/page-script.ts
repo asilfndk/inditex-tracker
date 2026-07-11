@@ -1,10 +1,10 @@
 /**
- * Inditex markalarının ürün sayfalarında bulunan JSON-LD (`application/ld+json`)
- * Product şemasından stok/fiyat çıkaran ortak script. Gizli BrowserWindow içinde
- * `executeJavaScript` ile çalışır ve ham ürün nesnesi döndürür.
+ * Shared script that extracts stock/price from the JSON-LD (`application/ld+json`)
+ * Product schema found on Inditex brand product pages. Runs inside a hidden
+ * BrowserWindow via `executeJavaScript` and returns a raw product object.
  *
- * Markalar aynı e-ticaret platformunu paylaştığı için JSON-LD yapısı benzerdir;
- * gerekirse marka-özel script ile override edilebilir.
+ * The brands share the same e-commerce platform, so the JSON-LD structure is
+ * similar; it can be overridden with a brand-specific script when needed.
  */
 export const JSONLD_PAGE_SCRIPT = `
   const out = { name: "", price: null, currency: null, imageUrl: null, colors: [], sizes: [], inStock: false };
@@ -25,8 +25,8 @@ export const JSONLD_PAGE_SCRIPT = `
     } catch (e) {}
     if (product) break;
   }
-  // ProductGroup (hasVariant) yayınlayan sayfalar: varyantları Offer listesine çevirip
-  // aynı akışı kullan (o.name = beden etiketi; "S (US S)" → "S").
+  // Pages publishing ProductGroup (hasVariant): convert variants to an Offer list
+  // and reuse the same flow (o.name = size label; "S (US S)" → "S").
   if (!product && group) {
     const vars = Array.isArray(group.hasVariant) ? group.hasVariant : [];
     product = {
@@ -51,7 +51,7 @@ export const JSONLD_PAGE_SCRIPT = `
 
     const offers = product.offers ? (Array.isArray(product.offers) ? product.offers : [product.offers]) : [];
     const inStockStr = (s) => typeof s === 'string' && s.toLowerCase().indexOf('instock') !== -1;
-    // Sadece insan-okur beden etiketlerini kabul et; SKU kodlarını (uzun/çizgili) ele.
+    // Accept only human-readable size labels; drop SKU codes (long/dashed).
     const SIZE_TOKEN = /^(XXS|XS|S|M|L|XL|XXL|XXXL|[2-6]XL|ONE SIZE|TEK BEDEN|\\d{2}(?:[\\/\\-]\\d{2})?)$/i;
     for (const o of offers) {
       if (out.price == null && o.price != null) out.price = parseFloat(o.price);
@@ -63,7 +63,7 @@ export const JSONLD_PAGE_SCRIPT = `
     }
     out.inStock = out.sizes.some(s => s.inStock) || offers.some(o => inStockStr(o.availability));
   }
-  // Renk: sayfadaki seçili/aktif renk öğelerinden topla (best-effort)
+  // Color: collect from the selected/active color elements on the page (best-effort)
   try {
     const colorEls = document.querySelectorAll('[data-qa-qualifier="product-detail-color-selector"] [aria-label], [class*="color"] [aria-label]');
     const set = new Set();
@@ -71,12 +71,12 @@ export const JSONLD_PAGE_SCRIPT = `
     out.colors = Array.from(set).slice(0, 20);
   } catch (e) {}
 
-  // Beden: bilinen beden-konteynerlerinden, gerekirse CTA tıklayıp DOM'dan oku.
+  // Sizes: read from known size containers, clicking the CTA first if needed.
   try {
     const TOKEN = /^(XXS|XS|S|M|L|XL|XXL|XXXL|[2-6]XL|ONE SIZE|TEK BEDEN|\\d{2}(?:[\\/\\-]\\d{2})?)$/i;
     const CONTAINERS = '.size-selector__list, [class*="size-selector" i], [class*="sizeList" i], [class*="size-list" i], [class*="sizes__list" i], [data-qa-qualifier*="size" i]';
 
-    // Bilinen konteynerlerden beden öğelerini topla (en kalabalık tag setini al).
+    // Collect size elements from known containers (take the most populated tag set).
     function readFromContainers() {
       let best = [];
       document.querySelectorAll(CONTAINERS).forEach((c) => {
@@ -89,7 +89,7 @@ export const JSONLD_PAGE_SCRIPT = `
       return best;
     }
 
-    // Tüm doküman üzerinden ortak ebeveyne göre yedek gruplama.
+    // Fallback grouping by common parent across the whole document.
     function readByParent() {
       const cands = Array.from(
         document.querySelectorAll('button, li, [role="button"], [role="option"]'),
@@ -107,7 +107,7 @@ export const JSONLD_PAGE_SCRIPT = `
 
     let els = readFromContainers();
     if (els.length < 2) {
-      // Beden paneli kapalıysa: yalnızca SEPETE EKLE / ADD TO BAG'e tıkla (wishlist'e değil).
+      // If the size panel is closed: click only SEPETE EKLE / ADD TO BAG (not the wishlist).
       const cta = Array.from(document.querySelectorAll('button, [role="button"]')).find((b) => {
         const t = (b.innerText || b.getAttribute('aria-label') || '').trim();
         return /SEPETE EKLE|ADD TO (BAG|CART|BASKET)|BEDEN SEÇ/i.test(t) && !/istek|wishlist|favori/i.test(t);
@@ -139,15 +139,15 @@ export const JSONLD_PAGE_SCRIPT = `
 `;
 
 /**
- * Zara'ya özel: JSON-LD'den ad/fiyat/görsel + "ADD" panelini açıp beden seçiciden
- * temiz beden etiketleri (XS/S/M/L) ve stok durumu (`data-qa-action`).
- * Async — beden paneli etkileşimle yüklendiği için bekleme gerekir.
+ * Zara-specific: name/price/image from JSON-LD + open the "ADD" panel and read
+ * clean size labels (XS/S/M/L) and stock status (`data-qa-action`) from the
+ * size selector. Async — the size panel loads on interaction, so waiting is required.
  */
 export const ZARA_PAGE_SCRIPT = `
   const out = { name: "", price: null, currency: null, imageUrl: null, colors: [], sizes: [], inStock: false };
 
-  // 1) JSON-LD: ad / fiyat / para birimi / görsel
-  // Zara 2026'da Product yerine ProductGroup (hasVariant: beden başına Offer) yayınlıyor.
+  // 1) JSON-LD: name / price / currency / image
+  // In 2026 Zara publishes ProductGroup (hasVariant: one Offer per size) instead of Product.
   const blocks = Array.from(document.querySelectorAll('script[type="application/ld+json"]'));
   let product = null, group = null;
   for (const b of blocks) {
@@ -187,7 +187,7 @@ export const ZARA_PAGE_SCRIPT = `
         if (!out.currency && o.priceCurrency) out.currency = o.priceCurrency;
       }
       if (v.color) colorSet.add(String(v.color));
-      // "S (US S)" → "S": parantezli ABD karşılığını at, yerel bedeni tut.
+      // "S (US S)" → "S": drop the parenthesized US equivalent, keep the local size.
       const label = v.size ? String(v.size).replace(/\\s*\\(US[^)]*\\)/i, '').trim() : '';
       if (label && !seen.has(label)) {
         seen.add(label);
@@ -197,7 +197,7 @@ export const ZARA_PAGE_SCRIPT = `
     if (colorSet.size) out.colors = Array.from(colorSet);
   }
 
-  // 2) Renk: seçili renk adı
+  // 2) Color: the selected color name
   try {
     const cn = document.querySelector('.product-detail-color-selector__selected-color-name, .product-detail-info__color');
     if (cn && cn.innerText.trim() && !out.colors.length) out.colors = [cn.innerText.trim()];
@@ -207,7 +207,7 @@ export const ZARA_PAGE_SCRIPT = `
     if (set.size) out.colors = Array.from(set).slice(0, 20);
   } catch (e) {}
 
-  // 3) JSON-LD beden vermediyse: beden panelini aç (ADD) → beden seçiciyi oku
+  // 3) If JSON-LD gave no sizes: open the size panel (ADD) → read the size selector
   try {
     if (out.sizes.length < 2) {
     const addBtn = Array.from(document.querySelectorAll('button, [role="button"]'))
@@ -228,8 +228,8 @@ export const ZARA_PAGE_SCRIPT = `
     }
   } catch (e) {}
 
-  // 4) Renk varyantları — birincil: window.zara.viewPayload (renk başına productId=v1,
-  // görsel, bedenler, kuruş cinsinden fiyat); yedek: JSON-LD hasVariant (URL'siz).
+  // 4) Color variants — primary: window.zara.viewPayload (per color: productId=v1,
+  // image, sizes, price in minor units); fallback: JSON-LD hasVariant (no URL).
   try {
     const vp = window.zara && window.zara.viewPayload;
     const cols = vp && vp.product && vp.product.detail && vp.product.detail.colors;
@@ -283,7 +283,7 @@ export const ZARA_PAGE_SCRIPT = `
       if (byColor.size) out.colorVariants = Array.from(byColor.values());
     } catch (e) {}
   }
-  // Renk etiket listesi varyantlarla tutarlı kalsın (buton sırası = varyant sırası).
+  // Keep the color label list consistent with the variants (button order = variant order).
   if (out.colorVariants && out.colorVariants.length) {
     out.colors = out.colorVariants.map((v) => v.color);
   }
@@ -294,23 +294,23 @@ export const ZARA_PAGE_SCRIPT = `
 `;
 
 /**
- * Bershka'ya özel: JSON-LD'den ad/fiyat/görsel; renk/beden verisi sayfa İÇİNDEN
- * çağrılan itxrest detail API'sinden gelir (doğrudan HTTP istekleri Akamai'ye
- * takılıyor, aynı-origin fetch geçiyor). \`detail.colors[]\` renk başına ad,
- * beden listesi (\`visibilityValue: SHOW|COMING_SOON|SOLD_OUT\` — aynı beden adı
- * birden çok SKU satırında tekrarlar, herhangi biri SHOW ise stokta) ve kuruş
- * cinsinden fiyat içerir; \`out.colorVariants\` buradan doldurulur (renk URL'i =
- * pathname + \`?colorId=<id>\`, görsel = \`detail.xmedia[]\`'daki renk başına
- * p/principal fotoğrafın \`deliveryUrl\`'i, \`w=800\`; DOM renk listesindeki
- * \`#color-<id> img\` yalnızca son çare — o \`-r.jpg\` kumaş kırpımıdır, ürün
- * fotoğrafı değildir). Store/catalog/languageId TR mağazasına
- * sabittir (uygulama TR odaklı). API başarısızsa yedek: DOM renk listesinden
- * bedensiz colorVariants + \`.size-selector__list .size-button\`'dan bedenler.
+ * Bershka-specific: name/price/image from JSON-LD; color/size data comes from
+ * the itxrest detail API called FROM INSIDE the page (direct HTTP requests get
+ * caught by Akamai, same-origin fetch passes). \`detail.colors[]\` holds per-color
+ * name, size list (\`visibilityValue: SHOW|COMING_SOON|SOLD_OUT\` — the same size
+ * name repeats across multiple SKU rows, in stock if any is SHOW) and price in
+ * minor units; \`out.colorVariants\` is filled from this (color URL =
+ * pathname + \`?colorId=<id>\`, image = the per-color p/principal photo's
+ * \`deliveryUrl\` from \`detail.xmedia[]\`, \`w=800\`; the \`#color-<id> img\` in the
+ * DOM color list is a last resort only — that \`-r.jpg\` is a fabric crop, not a
+ * product photo). Store/catalog/languageId are pinned to the TR store
+ * (the app is TR-focused). If the API fails, fallback: sizeless colorVariants
+ * from the DOM color list + sizes from \`.size-selector__list .size-button\`.
  */
 export const BERSHKA_PAGE_SCRIPT = `
   const out = { name: "", price: null, currency: null, imageUrl: null, colors: [], sizes: [], inStock: false };
 
-  // 1) JSON-LD: ad / fiyat / para birimi / görsel
+  // 1) JSON-LD: name / price / currency / image
   try {
     const blocks = Array.from(document.querySelectorAll('script[type="application/ld+json"]'));
     let product = null;
@@ -338,7 +338,7 @@ export const BERSHKA_PAGE_SCRIPT = `
     }
   } catch (e) {}
 
-  // DOM renk listesi görselleri (-r kumaş kırpımı, w=800) — yalnızca yedek.
+  // DOM color-list images (-r fabric crop, w=800) — fallback only.
   const domColorImg = {};
   try {
     document.querySelectorAll('[data-qa-anchor="productDetailColorList"] li').forEach((li) => {
@@ -353,7 +353,7 @@ export const BERSHKA_PAGE_SCRIPT = `
     });
   } catch (e) {}
 
-  // 2) Birincil: itxrest detail API (sayfa içi fetch — Akamai aynı-origin isteğe izin verir).
+  // 2) Primary: itxrest detail API (in-page fetch — Akamai allows same-origin requests).
   try {
     const pm = location.pathname.match(/p(\\d+)(?:\\.html)?$/i);
     if (pm) {
@@ -366,9 +366,9 @@ export const BERSHKA_PAGE_SCRIPT = `
         const sums = Array.isArray(data.bundleProductSummaries) ? data.bundleProductSummaries : [];
         const detail = (sums[0] && sums[0].detail) || {};
         const cols = Array.isArray(detail.colors) ? detail.colors : [];
-        // Renk başına gerçek ürün fotoğrafı: detail.xmedia[] (path'in son
-        // segmenti colorId). İlk p/p1 (principal) media'nın deliveryUrl'i;
-        // yoksa r/s (kırpım/swatch) OLMAYAN ilk media.
+        // Real product photo per color: detail.xmedia[] (the last segment of
+        // path is the colorId). The deliveryUrl of the first p/p1 (principal)
+        // media; otherwise the first media that is NOT r/s (crop/swatch).
         const xmediaImg = {};
         try {
           (Array.isArray(detail.xmedia) ? detail.xmedia : []).forEach((x) => {
@@ -416,7 +416,7 @@ export const BERSHKA_PAGE_SCRIPT = `
             };
           }).filter((v) => v.color);
           out.colors = out.colorVariants.map((v) => v.color);
-          // Aktif renk: URL'deki colorId, yoksa ilk renk.
+          // Active color: the colorId in the URL, otherwise the first color.
           const colorId = new URL(location.href).searchParams.get('colorId');
           let ai = cols.findIndex((c) => String(c.id) === String(colorId));
           if (ai < 0) ai = 0;
@@ -434,7 +434,7 @@ export const BERSHKA_PAGE_SCRIPT = `
     }
   } catch (e) {}
 
-  // 3) Yedek — API varyant vermediyse: DOM renk listesi + DOM beden okuma.
+  // 3) Fallback — if the API gave no variants: DOM color list + DOM size reading.
   try {
     if (!out.colorVariants || !out.colorVariants.length) {
       const vars = [];
@@ -481,14 +481,15 @@ export const BERSHKA_PAGE_SCRIPT = `
 `;
 
 /**
- * Inditex dışı mağazalar için ORTAK çekirdek: JSON-LD Product + og/meta yedeği ile
- * ad/fiyat/para birimi/görsel/stok (evrensel sinyaller). `out` nesnesini doldurur,
- * `return` ETMEZ — marka-özel beden bloğu eklenip sonuna `return out;` konur.
+ * SHARED core for non-Inditex stores: name/price/currency/image/stock via
+ * JSON-LD Product + og/meta fallback (universal signals). Fills the `out`
+ * object and does NOT `return` — a brand-specific size block is appended and
+ * `return out;` goes at the end.
  */
 const STORE_CORE_SCRIPT = `
   const out = { name: "", price: null, currency: null, imageUrl: null, colors: [], sizes: [], inStock: false };
 
-  // 1) JSON-LD: Product düğümünü bul
+  // 1) JSON-LD: find the Product node
   const blocks = Array.from(document.querySelectorAll('script[type="application/ld+json"]'));
   let product = null;
   for (const b of blocks) {
@@ -511,7 +512,7 @@ const STORE_CORE_SCRIPT = `
     else if (Array.isArray(product.image)) out.imageUrl = product.image[0] || null;
     else if (product.image && product.image.url) out.imageUrl = product.image.url;
 
-    // offers: Offer | AggregateOffer | dizi
+    // offers: Offer | AggregateOffer | array
     let offers = product.offers ? (Array.isArray(product.offers) ? product.offers : [product.offers]) : [];
     const flat = [];
     for (const o of offers) {
@@ -532,7 +533,7 @@ const STORE_CORE_SCRIPT = `
     }
   }
 
-  // 1b) JSON-LD eksik/eksiltili ise meta etiketleri + DOM yedeği.
+  // 1b) If JSON-LD is missing/incomplete: meta tags + DOM fallback.
   const metaContent = (sel) => {
     const el = document.querySelector(sel);
     if (!el) return null;
@@ -545,7 +546,7 @@ const STORE_CORE_SCRIPT = `
     out.imageUrl = metaContent('meta[property="og:image"]');
   }
   if (out.price == null) {
-    // TR sayı formatı: "6.159,00" = 6159.0 (nokta=binlik, virgül=ondalık).
+    // TR number format: "6.159,00" = 6159.0 (dot=thousands, comma=decimal).
     const parseTRNumber = (input) => {
       let s = String(input).replace(/[^\\d.,]/g, '');
       if (!s) return null;
@@ -567,7 +568,7 @@ const STORE_CORE_SCRIPT = `
   }
 `;
 
-/** Genel beden bloğu: DOM'dan en iyi çaba (geniş token — harf + sayısal + yarım numara). */
+/** Generic size block: best-effort from the DOM (wide token — letters + numeric + half sizes). */
 const GENERIC_SIZE_BLOCK = `
   try {
     const TOKEN = /^(XXS|XS|S|M|L|XL|XXL|XXXL|[2-6]XL|ONE SIZE|TEK BEDEN|STD|STD\\.|U|\\d{1,3}([.,/]\\d{1,2})?)$/i;
@@ -617,15 +618,15 @@ const GENERIC_SIZE_BLOCK = `
 `;
 
 /**
- * Inditex dışı genel TR e-ticaret siteleri (T-Soft, Ikas, SFCC vb.) için
- * platform-bağımsız çıkarım: ortak çekirdek + en iyi çaba beden bloğu.
+ * Platform-agnostic extraction for generic non-Inditex TR e-commerce sites
+ * (T-Soft, Ikas, SFCC etc.): shared core + best-effort size block.
  */
 export const GENERIC_PAGE_SCRIPT = STORE_CORE_SCRIPT + GENERIC_SIZE_BLOCK + "\n  return out;\n";
 
 /**
- * SneaksUp (Ticimax) beden bloğu: `.size-options-item`; stokta olan öğe
- * `in-stock-attribute-item` class'ı taşır, beden metni `.size-options-item-value`.
- * Sayfada bir görünür + bir `d-none` blok olabilir; etikete göre tekilleştirilir.
+ * SneaksUp (Ticimax) size block: `.size-options-item`; an in-stock item carries
+ * the `in-stock-attribute-item` class, the size text is `.size-options-item-value`.
+ * The page may have one visible + one `d-none` block; deduplicated by label.
  */
 const SNEAKSUP_SIZE_BLOCK = `
   try {
@@ -648,10 +649,11 @@ const SNEAKSUP_SIZE_BLOCK = `
 export const SNEAKSUP_PAGE_SCRIPT = STORE_CORE_SCRIPT + SNEAKSUP_SIZE_BLOCK + "\n  return out;\n";
 
 /**
- * Boyner (React/CSS-module) beden bloğu: satır `[class*="selectSizeOption__"]`,
- * etiket `[class*="selectSizeOptionLabel"]` içindeki `<h5>`. Beden paneli kapalı
- * (`max-height:0`) olduğundan `innerText` boş döner — `textContent` kullanılır.
- * Stok dışı bedenler sağ slotta "Tükendi"/benzeri metin ya da disabled class taşır.
+ * Boyner (React/CSS-module) size block: row `[class*="selectSizeOption__"]`,
+ * label is the `<h5>` inside `[class*="selectSizeOptionLabel"]`. The size panel
+ * is collapsed (`max-height:0`), so `innerText` returns empty — `textContent`
+ * is used. Out-of-stock sizes carry "Tükendi"/similar text in the right slot
+ * or a disabled class.
  */
 const BOYNER_SIZE_BLOCK = `
   try {
@@ -660,7 +662,7 @@ const BOYNER_SIZE_BLOCK = `
     document.querySelectorAll('[class*="selectSizeOption__"]').forEach((o) => {
       const lab = o.querySelector('[class*="selectSizeOptionLabel"]');
       const raw = ((lab ? lab.textContent : o.textContent) || '').replace(/\\s+/g, ' ').trim();
-      // Etiket "M - Tükendi" gibi durum metni içerebilir: bedeni ayıkla, durumu işle.
+      // The label may contain status text like "M - Tükendi": extract the size, process the status.
       const label = raw.replace(/\\s*[-–—]?\\s*(tükendi|kalmadı|stokta yok).*$/i, '').trim();
       if (!label || seen.has(label)) return;
       seen.add(label);
@@ -678,12 +680,12 @@ const BOYNER_SIZE_BLOCK = `
 export const BOYNER_PAGE_SCRIPT = STORE_CORE_SCRIPT + BOYNER_SIZE_BLOCK + "\n  return out;\n";
 
 /**
- * Wunder (Ikas) beden bloğu: `.variant-types` öğeleri; beden metni `.variant-name`.
- * Tükenmiş beden `cursor-not-allowed pointer-events-none` class'ı taşır ve
- * `.variant-name` üzerinde `disabled` olur. Tükenmiş bedenler de listelenir
- * (`inStock:false`) ki kullanıcı stok gelince bildirim için takip edebilsin.
- * (Genel script burada bir thumbnail/slider şeridini `1 2 3 4 5` diye yanlış
- * yakalıyordu — bu yüzden marka-özel.)
+ * Wunder (Ikas) size block: `.variant-types` elements; size text is `.variant-name`.
+ * A sold-out size carries the `cursor-not-allowed pointer-events-none` class and
+ * `disabled` on `.variant-name`. Sold-out sizes are listed too (`inStock:false`)
+ * so the user can track them for a restock notification.
+ * (The generic script wrongly picked up a thumbnail/slider strip here as
+ * `1 2 3 4 5` — hence brand-specific.)
  */
 const WUNDER_SIZE_BLOCK = `
   try {
@@ -707,12 +709,12 @@ const WUNDER_SIZE_BLOCK = `
 export const WUNDER_PAGE_SCRIPT = STORE_CORE_SCRIPT + WUNDER_SIZE_BLOCK + "\n  return out;\n";
 
 /**
- * Victoria's Secret beden bloğu: gerçek bedenler `.size_box` öğelerinde
- * (XS/S/M/L/XL). Tükenmiş beden `size_box nostok` class'ı taşır ve metninde
- * "TÜKENDİ … HABERİN OLSUN" tooltip'i bulunur — bu yüzden baştaki beden token'ı
- * ayıklanır. Tükenmiş bedenler de `inStock:false` ile listelenir.
- * (Genel script yanlışlıkla `.PriceList` içindeki "5.600,00TL"yi `5 6 7 8 9` diye
- * beden sanıyordu — bu yüzden marka-özel.)
+ * Victoria's Secret size block: real sizes live in `.size_box` elements
+ * (XS/S/M/L/XL). A sold-out size carries the `size_box nostok` class and its
+ * text contains a "TÜKENDİ … HABERİN OLSUN" tooltip — hence the leading size
+ * token is extracted. Sold-out sizes are listed too with `inStock:false`.
+ * (The generic script mistook "5.600,00TL" inside `.PriceList` for sizes
+ * `5 6 7 8 9` — hence brand-specific.)
  */
 const VICTORIASSECRET_SIZE_BLOCK = `
   try {
@@ -737,22 +739,24 @@ export const VICTORIASSECRET_PAGE_SCRIPT =
   STORE_CORE_SCRIPT + VICTORIASSECRET_SIZE_BLOCK + "\n  return out;\n";
 
 /**
- * Mango (Next.js/RSC) bloğu: JSON-LD yok; ad/görsel og meta'dan (çekirdek okur).
- * Birincil kaynak RSC flight payload'ı (\`self.__next_f\`): renk başına temiz
- * beden listesi (\`available\`/\`isDelayed\`), fiyat (\`prices.price\`) ve görsel
- * (\`looks[*].media[0].src\`) içerir; \`out.colorVariants\` buradan doldurulur
- * (renk URL'i = pathname'de \`.../{productId}/{colorId}/{look}\` renk segmenti).
- * \`isDelayed:true\` stokta sayılır — sadece kargo süresi uzundur; DOM'da bu
- * bedenlerin buton metnine "Kargoya teslimat tahmini N iş günüdür" eklendiği
- * için DOM okuma yalnızca payload bulunamazsa çalışan yedektir ve etiketler
- * beden token'ına uymuyorsa elenir.
- * Fiyat yedeği: indirimli üründe İKİ \`itemprop="price"\` meta'sı var — ilki üstü
- * çizili eski fiyat, SONUNCUSU gerçek satış fiyatı.
- * Bedensiz ürünlerde (çanta vb.) availability meta'sı yok — EKLE/ADD butonu stok sinyali.
+ * Mango (Next.js/RSC) block: no JSON-LD; name/image come from og meta (read by
+ * the core). The primary source is the RSC flight payload (\`self.__next_f\`):
+ * per color it holds a clean size list (\`available\`/\`isDelayed\`), price
+ * (\`prices.price\`) and image (\`looks[*].media[0].src\`); \`out.colorVariants\`
+ * is filled from it (color URL = the \`.../{productId}/{colorId}/{look}\` color
+ * segment in the pathname). \`isDelayed:true\` counts as in stock — only the
+ * shipping time is longer; in the DOM those sizes get "Kargoya teslimat tahmini
+ * N iş günüdür" appended to the button text, so DOM reading is a fallback that
+ * runs only when the payload is not found, and labels not matching the size
+ * token are dropped.
+ * Price fallback: a discounted product has TWO \`itemprop="price"\` metas — the
+ * first is the struck-through old price, the LAST is the real sale price.
+ * Sizeless products (bags etc.) have no availability meta — the EKLE/ADD button
+ * is the stock signal.
  */
 const MANGO_BLOCK = `
   try {
-    // og:title "Ürün adı - Kadın | MANGO Türkiye" biçiminde: kuyruğu at.
+    // og:title has the form "Product name - Kadın | MANGO Türkiye": drop the tail.
     out.name = out.name
       .replace(/\\s*\\|\\s*MANGO.*$/i, '')
       .replace(/\\s*-\\s*(Kadın|Erkek|Çocuk|Genç|Bebek)\\s*$/i, '')
@@ -766,7 +770,7 @@ const MANGO_BLOCK = `
     }
   } catch (e) {}
 
-  // 1) RSC flight payload: renkler + renk başına beden/fiyat/görsel.
+  // 1) RSC flight payload: colors + per-color sizes/price/image.
   try {
     let flight = '';
     if (Array.isArray(self.__next_f)) {
@@ -775,9 +779,9 @@ const MANGO_BLOCK = `
         .join('');
     }
     if (flight.indexOf('"colors":[') === -1) {
-      // Hydration __next_f'i boşaltır; veri script'lerdeki
-      // self.__next_f.push([1,"..."]) string literal'lerinde escape'li durur —
-      // literal'i kesip JSON.parse ile çöz.
+      // Hydration drains __next_f; the data stays escaped inside the
+      // self.__next_f.push([1,"..."]) string literals in the scripts —
+      // slice the literal and decode with JSON.parse.
       const parts = [];
       document.querySelectorAll('script').forEach((s) => {
         const t = s.textContent || '';
@@ -789,7 +793,7 @@ const MANGO_BLOCK = `
       });
       flight = parts.join('');
     }
-    // '"colors":' sonrasındaki JSON dizisini string-bilinçli dengeli taramayla kes.
+    // Slice the JSON array after '"colors":' with a string-aware balanced scan.
     const sliceArray = (text, from) => {
       let depth = 0, inStr = false, esc = false;
       for (let k = from; k < text.length; k++) {
@@ -847,7 +851,7 @@ const MANGO_BLOCK = `
       if (variants.length) {
         out.colorVariants = variants;
         out.colors = variants.map((v) => v.color);
-        // URL'deki renk segmenti (.../{productId}/{colorId}/{look}) aktif rengi belirler.
+        // The color segment in the URL (.../{productId}/{colorId}/{look}) determines the active color.
         const segs = path.split('/').filter(Boolean);
         const colorId = segs.length >= 2 ? segs[segs.length - 2] : null;
         let activeIdx = cols.findIndex((c) => String(c.id) === String(colorId));
@@ -863,7 +867,7 @@ const MANGO_BLOCK = `
     }
   } catch (e) {}
 
-  // 2) DOM yedeği — yalnızca payload beden vermediyse.
+  // 2) DOM fallback — only if the payload gave no sizes.
   try {
     if (!out.sizes.length) {
     const SIZE_TOKEN = /^(XXS|XS|S|M|L|XL|XXL|XXXL|[1-6]XL|ONE SIZE|TEK BEDEN|\\d{1,3}([.,]\\d{1,2})?)$/i;
@@ -871,7 +875,7 @@ const MANGO_BLOCK = `
     const domSizes = [];
     document.querySelectorAll('button[class*="SizeItem-module"]').forEach((b) => {
       const raw = (b.textContent || '').replace(/\\s+/g, ' ').trim();
-      // Buton metnine durum eklenir: "36Mevcut değil. İstiyorum!",
+      // Status is appended to the button text: "36Mevcut değil. İstiyorum!",
       // "XLKargoya teslimat tahmini 5 iş günüdür", "S2-4 iş günü içinde teslimat".
       const label = raw
         .replace(/\\s*(Mevcut değil|İstiyorum|Son ürünler|Benzerlerine bak|Kargoya teslimat|iş günü|teslimat|Bildirim al|Beni bilgilendir).*$/i, '')
@@ -902,25 +906,27 @@ const MANGO_BLOCK = `
 export const MANGO_PAGE_SCRIPT = STORE_CORE_SCRIPT + MANGO_BLOCK + "\n  return out;\n";
 
 /**
- * Sephora TR (Next.js RSC) bloğu: JSON-LD Product yok; birincil kaynak RSC
- * flight payload'ındaki (\`self.__next_f\`) \`"variants"\` dizisi — varyant başına
- * id, name, kendi ürün sayfası URL'i, thumbnailImage (gerçek ürün fotoğrafı,
- * \`scaleWidth/scaleHeight\` ile büyütülebilir), image (renk çipi/swatch),
- * isAvailable ve price. Ad kalıbı varyant türünü belirler: TÜM adlar salt boy
- * ("10 ml", "50 g") ise boy ürünü → varyantlar \`sizes[]\` (boy başına fiyat);
- * aksi halde renk ürünü → \`colorVariants[]\` (renk seçilince görsel/fiyat/stok
- * değişir, takip renge özel URL ile yapılır) ve \`sizes\` boş kalır.
- * Aktif varyant, url'i sayfa pathname'iyle eşleşendir — fiyat/stok ondan alınır.
- * Yedek: microdata \`itemtype="...Offer"\` scope'ları (flight bulunamazsa) —
- * name ("Ürün Adı - 10 ml") kuyruğu beden etiketi olarak listelenir.
+ * Sephora TR (Next.js RSC) block: no JSON-LD Product; the primary source is the
+ * \`"variants"\` array in the RSC flight payload (\`self.__next_f\`) — per variant:
+ * id, name, its own product-page URL, thumbnailImage (real product photo,
+ * upscalable via \`scaleWidth/scaleHeight\`), image (color chip/swatch),
+ * isAvailable and price. The name pattern determines the variant kind: if ALL
+ * names are pure sizes ("10 ml", "50 g") it is a size product → variants become
+ * \`sizes[]\` (price per size); otherwise a color product → \`colorVariants[]\`
+ * (image/price/stock change on color selection, tracking uses the color-specific
+ * URL) and \`sizes\` stays empty.
+ * The active variant is the one whose url matches the page pathname — price/stock
+ * come from it. Fallback: microdata \`itemtype="...Offer"\` scopes (when the
+ * flight is not found) — the name tail ("Product Name - 10 ml") is listed as
+ * the size label.
  */
 const SEPHORA_BLOCK = `
   try {
-    // og:title "Ürün adı | MARKA ≡ SEPHORA" biçiminde: kuyruğu at.
+    // og:title has the form "Product name | BRAND ≡ SEPHORA": drop the tail.
     out.name = out.name.replace(/\\s*\\|[^|]*≡\\s*SEPHORA\\s*$/i, '').trim();
   } catch (e) {}
 
-  // 1) RSC flight payload: varyantlar (renk ya da boy).
+  // 1) RSC flight payload: variants (color or size).
   try {
     let flight = '';
     if (Array.isArray(self.__next_f)) {
@@ -929,8 +935,8 @@ const SEPHORA_BLOCK = `
         .join('');
     }
     if (flight.indexOf('"variants":[') === -1) {
-      // Hydration __next_f'i boşaltır; veri script'lerdeki
-      // self.__next_f.push([1,"..."]) string literal'lerinde escape'li durur.
+      // Hydration drains __next_f; the data stays escaped inside the
+      // self.__next_f.push([1,"..."]) string literals in the scripts.
       const parts = [];
       document.querySelectorAll('script').forEach((s) => {
         const t = s.textContent || '';
@@ -942,7 +948,7 @@ const SEPHORA_BLOCK = `
       });
       flight = parts.join('');
     }
-    // '"variants":' sonrasındaki JSON dizisini string-bilinçli dengeli taramayla kes.
+    // Slice the JSON array after '"variants":' with a string-aware balanced scan.
     const sliceArray = (text, from) => {
       let depth = 0, inStr = false, esc = false;
       for (let k = from; k < text.length; k++) {
@@ -978,14 +984,14 @@ const SEPHORA_BLOCK = `
       let active = vars.find(isCurrent) || vars[0];
       const SIZE_ONLY = /^\\d+([.,]\\d+)?\\s*(ml|g|gr)\\.?$/i;
       if (vars.every((v) => SIZE_ONLY.test(String(v.name || '').trim()))) {
-        // Boy ürünü (parfüm vb.): varyantlar beden listesi, boy başına fiyat.
+        // Size product (perfume etc.): variants are the size list, price per size.
         out.sizes = vars.map((v) => ({
           label: String(v.name).trim(),
           inStock: !!v.isAvailable,
           price: (typeof v.price === 'number') ? v.price : null,
         }));
       } else {
-        // Renk ürünü (shade): renk başına görsel/fiyat/stok + renge özel URL.
+        // Color product (shade): per-color image/price/stock + color-specific URL.
         const upscale = (src) => {
           try {
             const u = new URL(src, location.href);
@@ -995,12 +1001,12 @@ const SEPHORA_BLOCK = `
           } catch (e) { return src || null; }
         };
         out.colorVariants = vars.map((v) => ({
-          // Kuyruktaki boy parantezini at: "Original Rose/Gloss (5.2 ml)" → "Original Rose/Gloss"
+          // Drop the trailing size parenthetical: "Original Rose/Gloss (5.2 ml)" → "Original Rose/Gloss"
           color: String(v.name || '').replace(/\\s*\\([^)]*\\)\\s*$/, '').trim(),
           url: v.url || null,
-          // image.src (media_swatch) shade'in gerçek ürün fotoğrafı; thumbnail
-          // yalnızca native parametreleriyle yedek (CDN thumbnail'i büyütmüyor —
-          // scale parametresi değiştirilirse boş yanıt dönüyor).
+          // image.src (media_swatch) is the shade's real product photo; the
+          // thumbnail is a fallback only with its native parameters (the CDN
+          // does not upscale thumbnails — changing the scale params returns empty).
           imageUrl: (v.image && v.image.src)
             ? upscale(v.image.src)
             : ((v.thumbnailImage && v.thumbnailImage.src) || null),
@@ -1017,7 +1023,7 @@ const SEPHORA_BLOCK = `
     }
   } catch (e) {}
 
-  // 2) Microdata yedeği — yalnızca flight varyant vermediyse.
+  // 2) Microdata fallback — only if the flight gave no variants.
   try {
     if (!out.sizes.length && !(out.colorVariants && out.colorVariants.length)) {
     const offers = Array.from(document.querySelectorAll('[itemtype="https://schema.org/Offer"], [itemtype="http://schema.org/Offer"]'));
@@ -1059,19 +1065,21 @@ const SEPHORA_BLOCK = `
 export const SEPHORA_PAGE_SCRIPT = STORE_CORE_SCRIPT + SEPHORA_BLOCK + "\n  return out;\n";
 
 /**
- * Gratis (Next.js RSC) bloğu: JSON-LD Product var ama \`price\` kuruş cinsinden
- * promosyon fiyatı (18950 = koşullu "250 TL üzeri" kampanyası) — kullanılmaz.
- * Birincil kaynak RSC flight payload'ı (\`self.__next_f\`):
- * - \`"productData":{"product":{...}}\` — \`prices.discountedPrice\` (kuruş, /100),
- *   \`stockStatus\` ("HIGH"/"LOW"/"NONE"), ana görsel \`imageUrls[0]\`.
- * - \`"variants":[{color, colorUrl (swatch görseli), shareLink (renge özel URL)}]\`
- *   → \`colorVariants\` (renk seçilince takip renge özel URL ile yapılır).
- *   Varyant başına fiyat/stok payload'da yok — alanlar atlanır, UI ürün geneline düşer.
- *   \`imageUrl\` de atlanır: payload'da varyantın GERÇEK ürün fotoğrafı yok, yalnızca
- *   renk çipi (swatch, \`...-variant_...jpg\`) var — swatch ürün görseli olarak
- *   gösterilmemeli. UI ana fotoğrafa düşer; takip edilen varyantı scheduler kendi
- *   sayfasından scrape edince (\`recordCheck\`) gerçek fotoğraf kendiliğinden gelir.
- * Kozmetik: beden yok, \`sizes\` boş kalır.
+ * Gratis (Next.js RSC) block: JSON-LD Product exists but its \`price\` is a
+ * promo price in minor units (18950 = the conditional "over 250 TL" campaign)
+ * — not used. The primary source is the RSC flight payload (\`self.__next_f\`):
+ * - \`"productData":{"product":{...}}\` — \`prices.discountedPrice\` (minor units, /100),
+ *   \`stockStatus\` ("HIGH"/"LOW"/"NONE"), main image \`imageUrls[0]\`.
+ * - \`"variants":[{color, colorUrl (swatch image), shareLink (color-specific URL)}]\`
+ *   → \`colorVariants\` (on color selection, tracking uses the color-specific URL).
+ *   Per-variant price/stock are absent from the payload — the fields are omitted
+ *   and the UI falls back to the product-wide values. \`imageUrl\` is omitted too:
+ *   the payload has no REAL product photo for the variant, only a color chip
+ *   (swatch, \`...-variant_...jpg\`) — a swatch must not be shown as the product
+ *   image. The UI falls back to the main photo; once the scheduler scrapes the
+ *   tracked variant from its own page (\`recordCheck\`), the real photo arrives
+ *   by itself.
+ * Cosmetics: no sizes, \`sizes\` stays empty.
  */
 const GRATIS_BLOCK = `
   try {
@@ -1082,8 +1090,8 @@ const GRATIS_BLOCK = `
         .join('');
     }
     if (flight.indexOf('"productData"') === -1) {
-      // Hydration __next_f'i boşaltır; veri script'lerdeki
-      // self.__next_f.push([1,"..."]) string literal'lerinde escape'li durur.
+      // Hydration drains __next_f; the data stays escaped inside the
+      // self.__next_f.push([1,"..."]) string literals in the scripts.
       const parts = [];
       document.querySelectorAll('script').forEach((s) => {
         const t = s.textContent || '';
@@ -1095,7 +1103,7 @@ const GRATIS_BLOCK = `
       });
       flight = parts.join('');
     }
-    // '"anahtar":' sonrasındaki JSON değerini string-bilinçli dengeli taramayla kes.
+    // Slice the JSON value after '"<key>":' with a string-aware balanced scan.
     const sliceBalanced = (text, from, open, close) => {
       let depth = 0, inStr = false, esc = false;
       for (let k = from; k < text.length; k++) {
@@ -1121,7 +1129,7 @@ const GRATIS_BLOCK = `
       }
     };
 
-    // 1) Ürün geneli: fiyat (kuruş) + stok + görsel.
+    // 1) Product-wide: price (minor units) + stock + image.
     const pd = parseAt('"productData":{', '{', '}');
     const prod = pd && pd.product;
     if (prod) {
@@ -1139,7 +1147,7 @@ const GRATIS_BLOCK = `
       }
     }
 
-    // 2) Renk varyantları (shade'ler) — renge özel URL + swatch görseli.
+    // 2) Color variants (shades) — color-specific URL + swatch image.
     let vars = null;
     let idx = 0;
     while (!vars) {

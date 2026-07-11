@@ -18,7 +18,7 @@ export class TommyScraper extends BaseScraper {
     try {
       const u = new URL(url);
       const last = u.pathname.split("/").filter(Boolean).pop() ?? "";
-      // ...erkek-hirka_206739 → 206739; aksi halde slug'ın kendisi.
+      // ...erkek-hirka_206739 → 206739; otherwise the slug itself.
       const m = last.match(/_(\d+)$/);
       const productId = m ? m[1] : last;
       if (!productId) return null;

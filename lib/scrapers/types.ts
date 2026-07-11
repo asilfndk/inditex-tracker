@@ -1,29 +1,29 @@
 import { z } from "zod";
 import type { Brand } from "@/db/schema";
 
-/** Bir bedenin stok durumu */
+/** A single size's stock status */
 export const sizeSchema = z.object({
   label: z.string(),
   inStock: z.boolean(),
-  /** Varyant bazlı fiyat (ör. Sephora ml boyları) — çoğu markada yok */
+  /** Per-variant price (e.g. Sephora ml sizes) — absent for most brands */
   price: z.number().nullable().optional(),
 });
 export type SizeAvailability = z.infer<typeof sizeSchema>;
 
-/** Renge özel varyant verisi — renk seçilince görsel/beden/fiyat bundan güncellenir */
+/** Color-specific variant data — image/sizes/price update from this on color selection */
 export const colorVariantSchema = z.object({
   color: z.string(),
-  /** Renge özel ürün URL'i (?v1=<id>) — takip + arka plan kontrolü bu URL'le yapılır */
+  /** Color-specific product URL (?v1=<id>) — tracking + background checks use this URL */
   url: z.string().nullable().optional(),
   imageUrl: z.string().nullable().optional(),
   sizes: z.array(sizeSchema).optional(),
   price: z.number().nullable().optional(),
-  /** Bedensiz renk varyantının stok durumu (ör. Sephora shade'leri) */
+  /** Stock status of a sizeless color variant (e.g. Sephora shades) */
   inStock: z.boolean().nullable().optional(),
 });
 export type ColorVariant = z.infer<typeof colorVariantSchema>;
 
-/** Tüm scraper'ların döndürdüğü normalize ürün durumu */
+/** Normalized product state returned by every scraper */
 export const productStockSchema = z.object({
   name: z.string(),
   price: z.number().nullable(),
@@ -31,23 +31,23 @@ export const productStockSchema = z.object({
   imageUrl: z.string().nullable(),
   colors: z.array(z.string()),
   sizes: z.array(sizeSchema),
-  /** En az bir beden/renk stokta mı */
+  /** Whether at least one size/color is in stock */
   inStock: z.boolean(),
-  /** Renk başına görsel/beden/URL (Zara, Mango ve Sephora üretir) */
+  /** Per-color image/sizes/URL (produced by Zara, Mango and Sephora) */
   colorVariants: z.array(colorVariantSchema).optional(),
 });
 export type ProductStock = z.infer<typeof productStockSchema>;
 
-/** URL'den çıkarılan ürün kimliği */
+/** Product identity extracted from the URL */
 export interface ParsedProduct {
   brand: Brand;
   productId: string;
-  /** Marka sitesindeki locale (ör. "tr/tr") — varsa */
+  /** Locale on the brand site (e.g. "tr/tr") — if present */
   locale?: string;
   url: string;
 }
 
-/** Scrape sonucunun hangi katmandan geldiğini de taşır */
+/** Also carries which layer the scrape result came from */
 export interface ScrapeResult extends ProductStock {
   source: "api" | "browser";
 }

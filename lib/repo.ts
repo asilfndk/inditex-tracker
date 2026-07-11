@@ -10,7 +10,7 @@ import {
   type TrackedProduct,
 } from "@/db/schema";
 
-/** Tüm takip edilen ürünler (en yeni önce) */
+/** All tracked products (newest first) */
 export function listProducts(): TrackedProduct[] {
   return db.select().from(trackedProducts).orderBy(desc(trackedProducts.createdAt)).all();
 }
@@ -31,14 +31,14 @@ export interface TrackInput {
   trackPrice?: boolean;
   lastPrice?: number | null;
   lastInStock?: boolean | null;
-  /** Takip anındaki beden/renk anlık görüntüsü (anında görünüm için) */
+  /** Size/color snapshot at track time (for instant display) */
   sizes?: { label: string; inStock: boolean }[] | null;
   colors?: string[] | null;
 }
 
 /**
- * Ürünü takibe ekler. Aynı url+beden+renk kombinasyonu zaten varsa onu döndürür
- * (çift kayıt engeli — edge case #1).
+ * Adds a product to tracking. If the same url+size+color combination already
+ * exists, returns it (duplicate-record guard — edge case #1).
  */
 export function trackProduct(input: TrackInput): TrackedProduct {
   const existing = db
@@ -66,7 +66,7 @@ export function trackProduct(input: TrackInput): TrackedProduct {
     trackPrice: input.trackPrice ?? true,
     lastPrice: input.lastPrice ?? null,
     lastInStock: input.lastInStock ?? null,
-    // Fiyat düşüş baseline'ı: takip anındaki fiyattan başlar.
+    // Price-drop baseline: starts from the price at track time.
     lowestPrice: input.lastPrice ?? null,
     lastSizes: input.sizes ? JSON.stringify(input.sizes) : null,
     lastColors: input.colors ? JSON.stringify(input.colors) : null,
@@ -75,7 +75,7 @@ export function trackProduct(input: TrackInput): TrackedProduct {
   return db.insert(trackedProducts).values(row).returning().get();
 }
 
-/** Ürün alanlarını kısmi güncelle (fiyat takibi aç/kapa, lowestPrice bakımı). */
+/** Partially update product fields (toggle price tracking, lowestPrice maintenance). */
 export function updateProduct(
   id: number,
   patch: Partial<
@@ -94,7 +94,7 @@ export function untrackProduct(id: number): void {
   db.delete(trackedProducts).where(eq(trackedProducts.id, id)).run();
 }
 
-/** Bir kontrol sonucunu geçmişe yaz ve ürünün son durumunu güncelle */
+/** Record a check result in history and update the product's latest state */
 export function recordCheck(
   id: number,
   inStock: boolean,
@@ -104,8 +104,8 @@ export function recordCheck(
   imageUrl?: string | null,
 ): void {
   db.insert(checkHistory).values({ productId: id, inStock, price }).run();
-  // price null ise lastPrice'a dokunma: bozuk bir scrape son bilinen iyi
-  // fiyatı (ve fiyat düşüş karşılaştırmasını) silmesin.
+  // If price is null, leave lastPrice alone: a broken scrape must not wipe
+  // the last known good price (and the price-drop comparison).
   const patch: Partial<TrackedProduct> = {
     lastInStock: inStock,
     lastCheckedAt: new Date(),
@@ -113,7 +113,7 @@ export function recordCheck(
   if (price != null) patch.lastPrice = price;
   if (sizes && sizes.length > 0) patch.lastSizes = JSON.stringify(sizes);
   if (colors && colors.length > 0) patch.lastColors = JSON.stringify(colors);
-  // imageUrl boş/null ise dokunma: bozuk bir scrape mevcut görseli silmesin.
+  // If imageUrl is empty/null, leave it alone: a broken scrape must not wipe the existing image.
   if (imageUrl) patch.imageUrl = imageUrl;
   db.update(trackedProducts).set(patch).where(eq(trackedProducts.id, id)).run();
 }
@@ -136,7 +136,7 @@ const DEFAULT_SETTINGS: Omit<Settings, "id"> = {
   autoUpdateCheck: true,
 };
 
-/** Ayarları getir; yoksa varsayılanı oluştur */
+/** Get settings; create the default row if missing */
 export function getSettings(): Settings {
   const row = db.select().from(settings).where(eq(settings.id, 1)).get();
   if (row) return row;
@@ -148,7 +148,7 @@ export function getSettings(): Settings {
 }
 
 export function updateSettings(patch: Partial<Omit<Settings, "id">>): Settings {
-  getSettings(); // satırın varlığını garanti et
+  getSettings(); // guarantee the row exists
   return db
     .update(settings)
     .set(patch)

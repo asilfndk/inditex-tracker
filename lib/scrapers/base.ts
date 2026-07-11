@@ -2,7 +2,7 @@ import type { Brand } from "@/db/schema";
 import { scrapeWithBrowser } from "./browser";
 import type { ParsedProduct, ProductStock, ScrapeResult } from "./types";
 
-/** Tarayıcı gibi görünen ortak HTTP header'ları */
+/** Shared HTTP headers that make requests look like a browser */
 export const BROWSER_HEADERS: Record<string, string> = {
   "User-Agent":
     "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
@@ -11,9 +11,9 @@ export const BROWSER_HEADERS: Record<string, string> = {
 };
 
 /**
- * Görsel URL'ini mutlak https URL'e çevir. Protokolsüz ("//host/x") ve köke
- * göreli ("/x") değerler ürün URL'ine göre çözülür; paketlenmiş uygulamada
- * renderer file:// origin'den yüklendiği için ham değerler yüklenemez.
+ * Resolve the image URL to an absolute https URL. Protocol-relative ("//host/x")
+ * and root-relative ("/x") values are resolved against the product URL; in the
+ * packaged app the renderer loads from a file:// origin, so raw values fail to load.
  */
 function resolveImageUrl(
   imageUrl: string | null,
@@ -33,34 +33,34 @@ function resolveImageUrl(
 export abstract class BaseScraper {
   abstract readonly brand: Brand;
 
-  /** Bu scraper verilen URL'i işleyebilir mi? */
+  /** Can this scraper handle the given URL? */
   abstract canHandle(url: string): boolean;
 
-  /** URL'den marka + productId çıkar (geçersizse null) */
+  /** Extract brand + productId from the URL (null when invalid) */
   abstract parseUrl(url: string): ParsedProduct | null;
 
   /**
-   * Katman 1 — markanın iç REST API'sinden stok çek.
-   * Bot-engel/timeout/desteklenmiyor ise null döndür (browser'a düşülür).
+   * Layer 1 — fetch stock from the brand's internal REST API.
+   * Return null on bot block/timeout/unsupported (falls back to the browser).
    */
   abstract fetchFromApi(parsed: ParsedProduct): Promise<ProductStock | null>;
 
   /**
-   * Katman 2 — sayfa içinde çalıştırılacak çıkarım scripti.
-   * `return { name, price, currency, imageUrl, colors, sizes, inStock }` döndürmeli.
+   * Layer 2 — extraction script executed inside the page.
+   * Must `return { name, price, currency, imageUrl, colors, sizes, inStock }`.
    */
   abstract pageScript(): string;
 
   /**
-   * Ortak akış: önce iç API, başarısızsa gizli BrowserWindow.
+   * Shared flow: internal API first, hidden BrowserWindow on failure.
    */
   async check(url: string): Promise<ScrapeResult> {
     const parsed = this.parseUrl(url);
     if (!parsed) {
-      throw new Error(`URL bu marka için ayrıştırılamadı: ${url}`);
+      throw new Error(`Could not parse the URL for this brand: ${url}`);
     }
 
-    // Katman 1 — iç API
+    // Layer 1 — internal API
     try {
       const apiResult = await this.fetchFromApi(parsed);
       if (apiResult) {
@@ -72,12 +72,12 @@ export abstract class BaseScraper {
       }
     } catch (err) {
       console.warn(
-        `[${this.brand}] iç API başarısız, tarayıcıya düşülüyor:`,
+        `[${this.brand}] internal API failed, falling back to browser:`,
         err instanceof Error ? err.message : err,
       );
     }
 
-    // Katman 2 — gizli BrowserWindow
+    // Layer 2 — hidden BrowserWindow
     const browserResult = await scrapeWithBrowser(parsed.url, this.pageScript());
     return {
       ...browserResult,
@@ -86,7 +86,7 @@ export abstract class BaseScraper {
     };
   }
 
-  /** fetch + timeout yardımcı (iç API çağrıları için) */
+  /** fetch + timeout helper (for internal API calls) */
   protected async fetchJson(
     url: string,
     timeoutMs = 8000,

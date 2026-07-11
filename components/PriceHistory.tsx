@@ -21,8 +21,8 @@ function formatDate(d: Date): string {
 }
 
 /**
- * check_history'den fiyat çizgi grafiği. Yalnızca izleme listesinden seçilen
- * ürünlerde gösterilir; 2'den az fiyat noktası varsa hiç render edilmez.
+ * Price line chart from check_history. Shown only for products selected from
+ * the watchlist; not rendered at all with fewer than 2 price points.
  */
 export function PriceHistory({ productId }: { productId: number }) {
   const [points, setPoints] = useState<PricePoint[]>([]);
@@ -41,12 +41,12 @@ export function PriceHistory({ productId }: { productId: number }) {
               price: r.price!,
               checkedAt: new Date(r.checkedAt),
             }))
-            // repo en-yeni-önce döner; grafik kronolojik ister.
+            // repo returns newest-first; the chart wants chronological.
             .reverse(),
         );
       })
       .catch(() => {
-        // Geçmiş okunamazsa grafik sessizce gizli kalır.
+        // If history can't be read, the chart silently stays hidden.
       });
     return () => {
       active = false;
@@ -58,7 +58,7 @@ export function PriceHistory({ productId }: { productId: number }) {
   const prices = points.map((p) => p.price);
   const min = Math.min(...prices);
   const max = Math.max(...prices);
-  const span = max - min || 1; // sabit fiyatta düz çizgi
+  const span = max - min || 1; // flat line for a constant price
   const x = (i: number) => PAD + (i / (points.length - 1)) * (W - PAD * 2);
   const y = (price: number) => PAD + ((max - price) / span) * (H - PAD * 2);
   const polyline = points.map((p, i) => `${x(i)},${y(p.price)}`).join(" ");
@@ -68,16 +68,16 @@ export function PriceHistory({ productId }: { productId: number }) {
   return (
     <div className="mt-6 border-t border-hairline pt-4">
       <div className="mb-2 flex items-center justify-between font-mono text-[10px] uppercase tracking-[0.18em] text-muted">
-        <span>Fiyat geçmişi · {points.length} kontrol</span>
+        <span>Price history · {points.length} checks</span>
         <span>
-          en düşük {formatPrice(min, "TRY")} · en yüksek {formatPrice(max, "TRY")}
+          low {formatPrice(min, "TRY")} · high {formatPrice(max, "TRY")}
         </span>
       </div>
       <svg
         viewBox={`0 0 ${W} ${H}`}
         className="h-28 w-full"
         role="img"
-        aria-label="Fiyat geçmişi grafiği"
+        aria-label="Price history chart"
       >
         <line
           x1={PAD}

@@ -12,7 +12,7 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
-// Display: optik boyutlu modern serif — editoryal kişilik.
+// Display: optically sized modern serif — editorial personality.
 const fraunces = Fraunces({
   variable: "--font-fraunces",
   subsets: ["latin"],
@@ -20,9 +20,9 @@ const fraunces = Fraunces({
 });
 
 export const metadata: Metadata = {
-  title: "Atelier — Stok Takip",
+  title: "Atelier — Stock Tracker",
   description:
-    "Zara, Mango, Sephora ve diğer mağazaların ürünlerinde stok ve fiyat takibi.",
+    "Stock and price tracking for products from Zara, Mango, Sephora and other stores.",
 };
 
 export default function RootLayout({
@@ -30,7 +30,7 @@ export default function RootLayout({
 }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html
-      lang="tr"
+      lang="en"
       className={`${geistSans.variable} ${geistMono.variable} ${fraunces.variable} h-full antialiased`}
     >
       <body className="min-h-full">{children}</body>

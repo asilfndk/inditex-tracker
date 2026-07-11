@@ -1,6 +1,6 @@
-// Atelier ikon üreteci (offline): SVG → PNG/ICNS.
-// Bağımlılık: sharp (mevcut) + macOS iconutil. Ağ veya yeni paket gerektirmez.
-// Çalıştır: npm run gen:icons
+// Atelier icon generator (offline): SVG → PNG/ICNS.
+// Dependencies: sharp (already present) + macOS iconutil. Needs no network or new packages.
+// Run: npm run gen:icons
 import { execFileSync } from "node:child_process";
 import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
@@ -19,10 +19,10 @@ async function svgToPng(svgPath, size, outPath) {
     .toFile(outPath);
 }
 
-// 1) Dev dock + Linux/Windows için tek kare PNG
+// 1) Single square PNG for the dev dock + Linux/Windows
 await svgToPng(iconSvg, 1024, join(res, "icon.png"));
 
-// 2) macOS .icns — .iconset üret, iconutil ile paketle
+// 2) macOS .icns — generate an .iconset, package with iconutil
 const iconset = join(res, "icon.iconset");
 rmSync(iconset, { recursive: true, force: true });
 mkdirSync(iconset, { recursive: true });
@@ -48,7 +48,7 @@ rmSync(iconset, { recursive: true, force: true });
 await svgToPng(traySvg, 16, join(res, "trayTemplate.png"));
 await svgToPng(traySvg, 32, join(res, "trayTemplate@2x.png"));
 
-// 4) Renderer favicon (16/32/48 çok boyutlu .ico)
+// 4) Renderer favicon (multi-size 16/32/48 .ico)
 const icoSizes = [16, 32, 48];
 const icoBuffers = await Promise.all(
   icoSizes.map((s) =>
@@ -60,9 +60,9 @@ const icoBuffers = await Promise.all(
 );
 writeFileSync(join(root, "app", "favicon.ico"), buildIco(icoBuffers, icoSizes));
 
-console.log("İkonlar üretildi: icon.icns, icon.png, trayTemplate.png(@2x), app/favicon.ico");
+console.log("Icons generated: icon.icns, icon.png, trayTemplate.png(@2x), app/favicon.ico");
 
-// PNG'leri ICO konteynerine paketle (basit, bağımlılıksız).
+// Package the PNGs into an ICO container (simple, dependency-free).
 function buildIco(pngBuffers, sizes) {
   const count = pngBuffers.length;
   const header = Buffer.alloc(6);
@@ -74,11 +74,11 @@ function buildIco(pngBuffers, sizes) {
   pngBuffers.forEach((buf, i) => {
     const s = sizes[i];
     const d = dir.subarray(i * 16);
-    d.writeUInt8(s >= 256 ? 0 : s, 0); // genişlik
-    d.writeUInt8(s >= 256 ? 0 : s, 1); // yükseklik
+    d.writeUInt8(s >= 256 ? 0 : s, 0); // width
+    d.writeUInt8(s >= 256 ? 0 : s, 1); // height
     d.writeUInt8(0, 2); // palet
-    d.writeUInt8(0, 3); // ayrılmış
-    d.writeUInt16LE(1, 4); // renk düzlemi
+    d.writeUInt8(0, 3); // reserved
+    d.writeUInt16LE(1, 4); // color planes
     d.writeUInt16LE(32, 6); // bit/piksel
     d.writeUInt32LE(buf.length, 8);
     d.writeUInt32LE(offset, 12);

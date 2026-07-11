@@ -4,7 +4,7 @@ import type { ParsedProduct, ProductStock } from "./types";
 
 /**
  * Zara: https://www.zara.com/tr/tr/...-p02446797.html
- * URL'deki `p<digits>` referans kimliğidir.
+ * The `p<digits>` in the URL is the reference id.
  */
 export class ZaraScraper extends BaseScraper {
   readonly brand = "zara" as const;
@@ -32,8 +32,8 @@ export class ZaraScraper extends BaseScraper {
   }
 
   async fetchFromApi(parsed: ParsedProduct): Promise<ProductStock | null> {
-    // Zara iç API'si Akamai arkasında ve mağaza-ID gerektiriyor; güvenilir
-    // olmadığından şimdilik browser katmanına bırakıyoruz.
+    // Zara's internal API sits behind Akamai and needs a store ID; it is
+    // unreliable, so we leave it to the browser layer for now.
     void parsed;
     return null;
   }

@@ -10,14 +10,14 @@ import type { TrackedProduct } from "@/types/global";
 interface Props {
   products: TrackedProduct[];
   onChange: () => void;
-  /** Ürüne tıklayınca sağ panelde göstermek için (tarayıcı açmaz). */
+  /** Show the product in the right panel on click (does not open a browser). */
   onSelect: (product: TrackedProduct) => void;
-  /** Sağ panelde açık olan ürün — satırı vurgulamak için. */
+  /** The product open in the right panel — used to highlight its row. */
   selectedId?: number | null;
 }
 
 export function Watchlist({ products, onChange, onSelect, selectedId }: Props) {
-  // Göreli zamanların ("3 dk önce") canlı ilerlemesi için periyodik re-render.
+  // Periodic re-render so relative times ("3 min ago") advance live.
   const [, setTick] = useState(0);
   useEffect(() => {
     const id = setInterval(() => setTick((t) => t + 1), 30_000);
@@ -37,8 +37,8 @@ export function Watchlist({ products, onChange, onSelect, selectedId }: Props) {
   if (products.length === 0) {
     return (
       <p className="px-4 py-6 font-mono text-xs leading-relaxed text-muted">
-        Henüz takip yok. Bir ürün bağlantısı yapıştırıp{" "}
-        <span className="text-ink-soft">Takibe Al</span>&apos;a bas.
+        Nothing tracked yet. Paste a product link and hit{" "}
+        <span className="text-ink-soft">Track</span>.
       </p>
     );
   }
@@ -61,10 +61,10 @@ export function Watchlist({ products, onChange, onSelect, selectedId }: Props) {
             className="no-drag block w-full text-left"
           >
             <div className="flex items-start gap-3">
-              {/* key: URL değişince remount olur, failed durumu sıfırlanır */}
+              {/* key: remounts when the URL changes, resetting the failed state */}
               <Thumb key={p.imageUrl ?? "none"} imageUrl={p.imageUrl} name={p.name} />
               <div className="min-w-0 flex-1">
-                {/* Durum noktası solda — sağ-üst köşe hover'daki çöp butonuna kalır. */}
+                {/* Status dot on the left — the top-right corner is reserved for the hover trash button. */}
                 <div className="flex items-center gap-1.5 pr-5">
                   <StockDot inStock={p.lastInStock} />
                   <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-muted">
@@ -72,7 +72,7 @@ export function Watchlist({ products, onChange, onSelect, selectedId }: Props) {
                   </span>
                 </div>
                 <p className="mt-1 truncate text-sm font-medium text-ink">
-                  {p.name ?? "İsimsiz ürün"}
+                  {p.name ?? "Untitled product"}
                 </p>
                 <div className="mt-1 flex items-center gap-2 font-mono text-[11px] text-muted">
                   <span className="text-ink-soft">
@@ -92,9 +92,9 @@ export function Watchlist({ products, onChange, onSelect, selectedId }: Props) {
             type="button"
             onClick={() => togglePriceTracking(p)}
             aria-label={
-              p.trackPrice ? "Fiyat takibini kapat" : "Fiyat takibini aç"
+              p.trackPrice ? "Turn off price tracking" : "Turn on price tracking"
             }
-            title={p.trackPrice ? "Fiyat takibi açık" : "Fiyat takibi kapalı"}
+            title={p.trackPrice ? "Price tracking on" : "Price tracking off"}
             className={cn(
               "no-drag absolute right-8 top-3 transition-colors",
               p.trackPrice
@@ -107,7 +107,7 @@ export function Watchlist({ products, onChange, onSelect, selectedId }: Props) {
           <button
             type="button"
             onClick={() => remove(p.id)}
-            aria-label="Takipten çıkar"
+            aria-label="Untrack"
             className="no-drag absolute right-3 top-3 hidden text-muted transition-colors hover:text-signal group-hover:block"
           >
             <Trash2 className="h-3.5 w-3.5" />
@@ -133,7 +133,7 @@ function Thumb({
         // eslint-disable-next-line @next/next/no-img-element
         <img
           src={imageUrl}
-          alt={name ?? "Ürün görseli"}
+          alt={name ?? "Product image"}
           referrerPolicy="no-referrer"
           onError={() => setFailed(true)}
           className="h-full w-full object-cover"
@@ -150,7 +150,7 @@ function Thumb({
 function StockDot({ inStock }: { inStock: boolean | null }) {
   return (
     <span
-      title={inStock ? "Stokta" : inStock === false ? "Tükendi" : "Bilinmiyor"}
+      title={inStock ? "In stock" : inStock === false ? "Sold out" : "Unknown"}
       className={cn(
         "h-1.5 w-1.5 shrink-0 rounded-full",
         inStock ? "bg-in-stock" : inStock === false ? "bg-signal" : "bg-hairline",

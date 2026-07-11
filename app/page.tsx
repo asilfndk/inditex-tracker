@@ -16,7 +16,7 @@ import type {
   TrackedProduct,
 } from "@/types/global";
 
-/** DB'deki son bilinen durumdan anında gösterilecek önbellek sonucu üret. */
+/** Build a cache result for instant display from the last known state in the DB. */
 function buildCachedResult(p: TrackedProduct): ScrapeResult {
   let sizes: SizeAvailability[] = [];
   let colors: string[] = [];
@@ -31,7 +31,7 @@ function buildCachedResult(p: TrackedProduct): ScrapeResult {
     colors = [];
   }
   return {
-    name: p.name ?? "İsimsiz ürün",
+    name: p.name ?? "Untitled product",
     price: p.lastPrice,
     currency: "TRY",
     imageUrl: p.imageUrl,
@@ -50,12 +50,12 @@ export default function Home() {
   const [error, setError] = useState<string | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [checkingAll, setCheckingAll] = useState(false);
-  // CheckBar kontrolsüz input'unu remount ederek temizlemek için artan anahtar.
+  // Incrementing key to clear CheckBar's uncontrolled input by remounting it.
   const [checkBarKey, setCheckBarKey] = useState(0);
-  // İzleme listesinden seçilen ürün (önbellek görünümü + hedef beden/renk için).
+  // Product selected from the watchlist (for the cache view + target size/color).
   const [selected, setSelected] = useState<TrackedProduct | null>(null);
   const [refreshing, setRefreshing] = useState(false);
-  // Geç dönen scrape sonuçlarının yeni seçimi ezmemesi için artan jeton.
+  // Incrementing token so late scrape results don't clobber a newer selection.
   const selectionToken = useRef(0);
 
   const refresh = useCallback(async () => {
@@ -63,8 +63,8 @@ export default function Home() {
     setProducts(await getApi().listProducts());
   }, []);
 
-  // İzleme listesinden seçim: DB'deki son durum anında gösterilir,
-  // canlı veri arka planda tazelenir (kullanıcı scrape'i beklemez).
+  // Selecting from the watchlist: the last state in the DB is shown instantly,
+  // live data refreshes in the background (the user doesn't wait for the scrape).
   const selectProduct = useCallback((p: TrackedProduct) => {
     const token = ++selectionToken.current;
     setLoading(false);
@@ -79,7 +79,7 @@ export default function Home() {
         if (selectionToken.current === token) setResult(res);
       })
       .catch(() => {
-        // Canlı kontrol başarısız: önbellek görünümü kalır, panel bozulmaz.
+        // Live check failed: the cache view stays, the panel doesn't break.
       })
       .finally(() => {
         if (selectionToken.current === token) setRefreshing(false);
@@ -88,20 +88,20 @@ export default function Home() {
 
   useEffect(() => {
     if (!hasApi()) return;
-    // İlk yükleme: setState'i await sonrası callback'te yap (effect gövdesinde
-    // doğrudan değil) — cascading render uyarısını önler.
+    // Initial load: call setState in the post-await callback (not directly in
+    // the effect body) — avoids the cascading-render warning.
     let active = true;
     getApi()
       .listProducts()
       .then((p) => {
         if (active) setProducts(p);
       });
-    // Arka plan kontrolü listeyi değiştirince otomatik yenile.
+    // Auto-refresh when a background check changes the list.
     const offProducts = getApi().onProductsChanged(refresh);
-    // Tray menüsündeki "Ayarlar…" ayar modalını açar.
+    // "Settings…" in the tray menu opens the settings modal.
     const offSettings = getApi().onOpenSettings(() => setSettingsOpen(true));
-    // Bildirim tıklaması: ilgili ürünü panelde aç (taze listeden bul —
-    // bildirim, renderer listeyi yenilemeden önce gelebilir).
+    // Notification click: open the related product in the panel (find it in a
+    // fresh list — the notification may arrive before the renderer refreshes).
     const offOpenProduct = getApi().onOpenProduct(async (id) => {
       const list = await getApi().listProducts();
       if (!active) return;
@@ -117,8 +117,8 @@ export default function Home() {
     };
   }, [refresh, selectProduct]);
 
-  // Panelde gösterilen ürün listeden kaldırılınca (çöp butonu, arka plan
-  // değişikliği…) sağ paneli de kapat — silinmiş ürünü göstermeye devam etme.
+  // When the product shown in the panel is removed from the list (trash button,
+  // background change…) close the right panel too — don't keep showing a deleted product.
   useEffect(() => {
     if (selected && !products.some((p) => p.id === selected.id)) {
       clearResult();
@@ -126,7 +126,7 @@ export default function Home() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [products]);
 
-  // Esc paneli kapatır (ayar modalı açıkken ona karışma — modalın kendi X'i var).
+  // Esc closes the panel (don't interfere while the settings modal is open — it has its own X).
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
       if (e.key === "Escape" && !settingsOpen) clearResult();
@@ -159,14 +159,14 @@ export default function Home() {
       if (selectionToken.current === token) setResult(res);
     } catch (e) {
       if (selectionToken.current === token) {
-        setError(e instanceof Error ? e.message : "Kontrol başarısız oldu.");
+        setError(e instanceof Error ? e.message : "Check failed.");
       }
     } finally {
       if (selectionToken.current === token) setLoading(false);
     }
   }
 
-  // Takibe alındıktan sonra sağ paneli ve link input'unu temizle.
+  // Clear the right panel and the link input after tracking.
   function clearResult() {
     selectionToken.current++;
     setResult(null);
@@ -179,7 +179,7 @@ export default function Home() {
 
   return (
     <div className="flex h-screen overflow-hidden">
-      {/* Sidebar — izleme listesi */}
+      {/* Sidebar — watchlist */}
       <aside className="flex w-72 shrink-0 flex-col border-r border-hairline bg-paper">
         <div className="drag-region flex h-20 items-end px-4 pb-2">
           <h1 className="font-display text-xl font-semibold tracking-tight text-ink">
@@ -188,15 +188,15 @@ export default function Home() {
         </div>
         <div className="flex items-center justify-between border-b border-hairline px-4 pb-3">
           <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-muted">
-            İzleme Listesi · {products.length}
+            Watchlist · {products.length}
           </p>
           <div className="no-drag flex items-center gap-1">
             <button
               type="button"
               onClick={checkAllNow}
               disabled={checkingAll || products.length === 0}
-              aria-label="Şimdi kontrol et"
-              title="Şimdi kontrol et"
+              aria-label="Check now"
+              title="Check now"
               className="text-muted transition-colors hover:text-ink disabled:opacity-40"
             >
               <RefreshCw
@@ -206,8 +206,8 @@ export default function Home() {
             <button
               type="button"
               onClick={() => setSettingsOpen(true)}
-              aria-label="Ayarlar"
-              title="Ayarlar"
+              aria-label="Settings"
+              title="Settings"
               className="text-muted transition-colors hover:text-ink"
             >
               <Settings2 className="h-3.5 w-3.5" />
@@ -220,7 +220,7 @@ export default function Home() {
             onChange={refresh}
             selectedId={selected?.id ?? null}
             onSelect={(p) => {
-              // Seçili ürüne tekrar tıklamak paneli kapatır (toggle).
+              // Clicking the selected product again closes the panel (toggle).
               if (selected?.id === p.id) clearResult();
               else selectProduct(p);
             }}
@@ -235,7 +235,7 @@ export default function Home() {
         </footer>
       </aside>
 
-      {/* Ana panel */}
+      {/* Main panel */}
       <main className="flex flex-1 flex-col overflow-hidden">
         <div className="drag-region h-20 shrink-0" />
 
@@ -254,13 +254,13 @@ export default function Home() {
               {result && (
                 <div className="mb-2 flex items-center justify-between">
                   <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-muted">
-                    {selected ? "İzleme listesinden" : "Anlık kontrol"}
+                    {selected ? "From the watchlist" : "Instant check"}
                   </span>
                   <button
                     type="button"
                     onClick={clearResult}
-                    aria-label="Paneli kapat"
-                    title="Kapat (Esc)"
+                    aria-label="Close panel"
+                    title="Close (Esc)"
                     className="no-drag text-muted transition-colors hover:text-ink"
                   >
                     <X className="h-4 w-4" />
@@ -282,7 +282,7 @@ export default function Home() {
                       clearResult();
                     }}
                   />
-                  {/* key: ürün değişince eski grafik anlık görünmesin diye remount */}
+                  {/* key: remount so the old chart doesn't flash when the product changes */}
                   {selected && (
                     <PriceHistory key={selected.id} productId={selected.id} />
                   )}
@@ -304,20 +304,20 @@ function EmptyState() {
   return (
     <div className="select-none pb-16 pt-8">
       <p className="font-mono text-[11px] uppercase tracking-[0.25em] text-muted">
-        Stok &amp; fiyat takibi
+        Stock &amp; price tracking
       </p>
       <h2 className="mt-3 max-w-md font-display text-4xl font-light leading-[1.1] tracking-tight text-ink">
-        Bir bedenin{" "}
-        <span className="font-semibold italic text-signal">geri gelmesini</span>{" "}
-        ya da{" "}
+        Don&apos;t wait around for a size to{" "}
+        <span className="font-semibold italic text-signal">come back</span>{" "}
+        or a price to{" "}
         <span className="font-semibold italic text-price-drop">
-          fiyatın düşmesini
-        </span>{" "}
-        bekleme.
+          drop
+        </span>
+        .
       </h2>
       <p className="mt-4 max-w-sm text-sm leading-relaxed text-ink-soft">
-        Desteklenen mağazalardan bir ürün bağlantısı yapıştır. Stok durumunu
-        anında gör, takibe al; gerisini Atelier arka planda halleder.
+        Paste a product link from a supported store. See its stock instantly,
+        start tracking it; Atelier handles the rest in the background.
       </p>
     </div>
   );

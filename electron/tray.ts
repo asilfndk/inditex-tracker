@@ -10,12 +10,12 @@ import { checkAll, refreshBadge } from "./scheduler";
 
 let tray: Tray | null = null;
 
-/** Menü çubuğu simgesi: monokrom template (açık/koyu menü çubuğuna otomatik uyum). */
+/** Menu-bar icon: monochrome template (auto-adapts to light/dark menu bar). */
 export function createTray(): void {
   const icon = nativeImage.createFromPath(resolveAsset("trayTemplate.png"));
   icon.setTemplateImage(true);
   tray = new Tray(icon.isEmpty() ? nativeImage.createEmpty() : icon);
-  tray.setToolTip("Atelier — Stok & Fiyat Takip");
+  tray.setToolTip("Atelier — Stock & Price Tracker");
   updateTray();
   onProductsChanged(updateTray);
 }
@@ -25,23 +25,23 @@ export function updateTray(): void {
   const items = listProducts();
   const inStock = items.filter((p) => p.lastInStock).length;
 
-  // Stokta ürün varsa sayıyı simgenin yanında göster; yoksa yalnızca ikon.
+  // If any product is in stock, show the count next to the icon; otherwise icon only.
   tray.setTitle(inStock > 0 ? ` ${inStock}` : "");
   refreshBadge();
 
   const menu = Menu.buildFromTemplate([
     { label: "Atelier", enabled: false },
     {
-      label: `${items.length} takip · ${inStock} stokta`,
+      label: `${items.length} tracked · ${inStock} in stock`,
       enabled: false,
     },
     { type: "separator" },
-    { label: "Pencereyi Göster", click: () => showWindow() },
-    { label: "Şimdi Kontrol Et", click: () => void checkAll() },
-    { label: "Ayarlar…", click: () => openSettings() },
+    { label: "Show Window", click: () => showWindow() },
+    { label: "Check Now", click: () => void checkAll() },
+    { label: "Settings…", click: () => openSettings() },
     { type: "separator" },
     {
-      label: "Çıkış",
+      label: "Quit",
       click: () => {
         (globalThis as { __isQuitting?: boolean }).__isQuitting = true;
         app.quit();

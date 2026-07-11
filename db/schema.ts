@@ -6,7 +6,7 @@ import {
   text,
 } from "drizzle-orm/sqlite-core";
 
-/** Desteklenen markalar (Inditex + diğer mağazalar) */
+/** Supported brands (Inditex + other stores) */
 export const BRANDS = [
   "zara",
   "bershka",
@@ -24,7 +24,7 @@ export const BRANDS = [
 ] as const;
 export type Brand = (typeof BRANDS)[number];
 
-/** Takip edilen ürünler */
+/** Tracked products */
 export const trackedProducts = sqliteTable("tracked_products", {
   id: integer("id").primaryKey({ autoIncrement: true }),
   url: text("url").notNull(),
@@ -33,11 +33,11 @@ export const trackedProducts = sqliteTable("tracked_products", {
   name: text("name"),
   imageUrl: text("image_url"),
 
-  // Hedef filtreler (null = herhangi)
+  // Target filters (null = any)
   targetSize: text("target_size"),
   targetColor: text("target_color"),
 
-  // Neyi takip ediyoruz?
+  // What are we tracking?
   trackStock: integer("track_stock", { mode: "boolean" })
     .notNull()
     .default(true),
@@ -45,14 +45,14 @@ export const trackedProducts = sqliteTable("tracked_products", {
     .notNull()
     .default(true),
 
-  // Son bilinen durum
+  // Last known state
   lastPrice: real("last_price"),
   lastInStock: integer("last_in_stock", { mode: "boolean" }),
-  /** Görülen en düşük fiyat — fiyat düşüş bildirimlerinin baseline'ı */
+  /** Lowest price ever seen — the baseline for price-drop notifications */
   lowestPrice: real("lowest_price"),
-  /** Son kontrolün beden matrisi (JSON SizeAvailability[]) — anında görünüm için */
+  /** Size matrix of the last check (JSON SizeAvailability[]) — for instant display */
   lastSizes: text("last_sizes"),
-  /** Son kontrolün renk listesi (JSON string[]) */
+  /** Color list of the last check (JSON string[]) */
   lastColors: text("last_colors"),
 
   createdAt: integer("created_at", { mode: "timestamp" })
@@ -61,32 +61,32 @@ export const trackedProducts = sqliteTable("tracked_products", {
   lastCheckedAt: integer("last_checked_at", { mode: "timestamp" }),
 });
 
-/** Uygulama ayarları — tek satır (id=1) */
+/** App settings — single row (id=1) */
 export const settings = sqliteTable("settings", {
   id: integer("id").primaryKey().default(1),
-  /** node-cron ifadesi (varsayılan 15 dk) */
+  /** node-cron expression (default 15 min) */
   checkIntervalCron: text("check_interval_cron")
     .notNull()
     .default("*/15 * * * *"),
-  /** Girişte otomatik başlat */
+  /** Launch at login */
   autolaunch: integer("autolaunch", { mode: "boolean" })
     .notNull()
     .default(false),
-  /** Stok bildirimleri açık mı */
+  /** Whether stock notifications are on */
   notifyStock: integer("notify_stock", { mode: "boolean" })
     .notNull()
     .default(true),
-  /** Fiyat düşüşü bildirimleri açık mı */
+  /** Whether price-drop notifications are on */
   notifyPrice: integer("notify_price", { mode: "boolean" })
     .notNull()
     .default(true),
-  /** Uygulama güncellemelerini otomatik denetle (açılışta + 24 saatte bir) */
+  /** Automatically check for app updates (on startup + every 24h) */
   autoUpdateCheck: integer("auto_update_check", { mode: "boolean" })
     .notNull()
     .default(true),
 });
 
-/** Her kontrolün geçmiş kaydı (fiyat grafiği + değişim tespiti) */
+/** History record of every check (price chart + change detection) */
 export const checkHistory = sqliteTable("check_history", {
   id: integer("id").primaryKey({ autoIncrement: true }),
   productId: integer("product_id")

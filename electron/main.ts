@@ -26,8 +26,8 @@ function createWindow(): void {
     win.loadFile(join(app.getAppPath(), "out", "index.html"));
   }
 
-  // Kapat (kırmızı) butonu uygulamayı kapatmaz: pencereyi gizle, tray'de kal.
-  // Gerçek çıkış yalnızca __isQuitting bayrağıyla (Cmd+Q / tray "Çıkış").
+  // The close (red) button does not quit the app: hide the window, stay in the tray.
+  // A real quit only happens via the __isQuitting flag (Cmd+Q / tray "Quit").
   win.on("close", (e) => {
     if (!(globalThis as { __isQuitting?: boolean }).__isQuitting) {
       e.preventDefault();
@@ -39,7 +39,7 @@ function createWindow(): void {
   setMainWindow(win);
 }
 
-// Tek örnek (ikinci başlatmada mevcut pencereyi öne al)
+// Single instance (a second launch brings the existing window to front)
 const gotLock = app.requestSingleInstanceLock();
 if (!gotLock) {
   app.quit();
@@ -49,14 +49,14 @@ if (!gotLock) {
   });
 
   app.whenReady().then(async () => {
-    // Menü-bar uygulaması: Dock'ta hiç görünme (LSUIElement Info.plist'te de set'li).
-    // Pencere açıkken bile yalnızca menü çubuğundaki çanta ikonundan yönetilir.
+    // Menu-bar app: never show in the Dock (LSUIElement is also set in Info.plist).
+    // Even with the window open, the app is managed from the menu-bar bag icon only.
     if (app.dock) app.dock.hide();
 
-    // DB yolunu kullanıcı verisi klasörüne sabitle (güncellemelerden etkilenmez).
+    // Pin the DB path to the user-data folder (unaffected by updates).
     process.env.DATABASE_URL = `file:${join(app.getPath("userData"), "app.db")}`;
 
-    // env ayarlandıktan SONRA db'ye dokunan modülleri yükle.
+    // Load modules that touch the DB only AFTER the env var is set.
     const { runMigrations } = await import("./db-init");
     const { registerIpc } = await import("./ipc");
     const { startScheduler, checkAll } = await import("./scheduler");
@@ -72,15 +72,15 @@ if (!gotLock) {
     createTray();
     startScheduler();
 
-    // Kayıtlı auto-launch tercihini işletim sistemiyle eşitle.
+    // Sync the stored auto-launch preference with the OS.
     setAutoLaunch(getSettings().autolaunch);
 
-    // Açılışta sessiz güncelleme denetimi (sonuç renderer'a event ile gider)
-    // + 24 saatte bir otomatik denetim (ikisi de autoUpdateCheck ayarına bağlı).
+    // Silent update check on startup (result goes to the renderer via event)
+    // + automatic check every 24h (both gated by the autoUpdateCheck setting).
     checkOnStartup();
     startAutoUpdateChecks();
 
-    // Uyku/uyanma: uyanışta kaçırılan kontrolü telafi et (edge case #9).
+    // Sleep/wake: make up for the missed check on resume (edge case #9).
     powerMonitor.on("resume", () => void checkAll());
 
     app.on("activate", () => {
@@ -89,7 +89,7 @@ if (!gotLock) {
   });
 }
 
-// Gerçek çıkışta (Cmd+Q veya tray "Çıkış") pencere "close" engelini kaldır.
+// On a real quit (Cmd+Q or tray "Quit"), lift the window "close" block.
 app.on("before-quit", () => {
   (globalThis as { __isQuitting?: boolean }).__isQuitting = true;
 });

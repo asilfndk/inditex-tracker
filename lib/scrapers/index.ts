@@ -31,24 +31,24 @@ const scrapers: BaseScraper[] = [
   new WatsonsScraper(),
 ];
 
-/** URL'i işleyebilecek scraper'ı döndür (yoksa null) */
+/** Return the scraper that can handle the URL (null if none) */
 export function getScraperForUrl(url: string): BaseScraper | null {
   return scrapers.find((s) => s.canHandle(url)) ?? null;
 }
 
-/** Marka adından scraper döndür */
+/** Return the scraper for a brand name */
 export function getScraperByBrand(brand: Brand): BaseScraper | null {
   return scrapers.find((s) => s.brand === brand) ?? null;
 }
 
 /**
- * Bir URL'i kontrol et. Desteklenmiyorsa anlamlı hata fırlatır.
+ * Check a URL. Throws a meaningful error when unsupported.
  */
 export async function checkUrl(url: string): Promise<ScrapeResult> {
   const scraper = getScraperForUrl(url);
   if (!scraper) {
     throw new Error(
-      "Desteklenmeyen URL. Desteklenen mağazalardan birinin ürün bağlantısını yapıştırın.",
+      "Unsupported URL. Paste a product link from one of the supported stores.",
     );
   }
   return scraper.check(url);

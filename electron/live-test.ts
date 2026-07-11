@@ -2,8 +2,8 @@ import { BrowserWindow, app } from "electron";
 import { checkUrl, getScraperForUrl } from "@/lib/scrapers";
 
 app.disableHardwareAcceleration();
-// Scrape pencereleri açılıp kapanır; sonuncusu kapanınca Electron'un varsayılan
-// app.quit()'i suite'i yarıda kesmesin.
+// Scrape windows open and close; don't let Electron's default app.quit()
+// cut the suite short when the last one closes.
 app.on("window-all-closed", () => {});
 
 const UA =
@@ -24,12 +24,12 @@ function applyHeaders(win: BrowserWindow): void {
   });
 }
 
-// Marka listeleme/kategori sayfaları — buradan gerçek ürün linkleri keşfedilir.
+// Brand listing/category pages — real product links are discovered from these.
 const LISTINGS = [
   "https://www.zara.com/us/en/woman-dresses-l1066.html",
   "https://www.bershka.com/tr/kadin/yeni-n3283.html",
   "https://www.stradivarius.com/tr/kadin/giyim/elbiseler-n1928.html",
-  // Yeni mağazalar — doğrudan ürün URL'leri (parseUrl eşleşir → doğrudan scrape).
+  // Newer stores — direct product URLs (parseUrl matches → scraped directly).
   "https://www.sneaksup.com/new-balance-9060-lifestyle-womens-shoes-u9060blk-w-1",
   "https://tr.tommy.com/erkek-hirka_206739",
   "https://www.victoriassecret.com.tr/victoria-s-secret-saten-dantel-detayli-askili-bluz-ve-firfirli-sort-takimi-VS27291321",
@@ -69,7 +69,7 @@ async function discover(listUrl: string): Promise<string[]> {
 }
 
 app.whenReady().then(async () => {
-  // argv ile belirli listeleme URL'leri verilebilir; yoksa hepsini dene.
+  // Specific listing URLs may be passed via argv; otherwise try them all.
   const argUrls = process.argv.filter((a) => a.startsWith("http"));
   const targets = argUrls.length ? argUrls : LISTINGS;
   for (const list of targets) {
@@ -77,31 +77,31 @@ app.whenReady().then(async () => {
     const brand = scraper?.brand ?? "?";
     console.log(`\n=== [${brand}] ${list}`);
 
-    // URL'in kendisi ürünse doğrudan scrape et; değilse listeden keşfet.
+    // If the URL itself is a product, scrape it directly; otherwise discover from the listing.
     let target: string | undefined;
     if (scraper?.parseUrl(list)) {
       target = list;
-      console.log("  (doğrudan ürün URL'i)");
+      console.log("  (direct product URL)");
     } else {
       let products: string[] = [];
       try {
         products = await discover(list);
       } catch (e) {
-        console.log("  keşif hatası:", e instanceof Error ? e.message : e);
+        console.log("  discovery error:", e instanceof Error ? e.message : e);
       }
-      console.log(`  bulunan ürün linki: ${products.length}`);
+      console.log(`  product links found: ${products.length}`);
       target = products[0];
     }
 
     if (!target) {
-      console.log("  → ürün linki bulunamadı (bot-engel veya farklı yapı)");
+      console.log("  → no product link found (bot block or different structure)");
       continue;
     }
     console.log("  scrape:", target);
     try {
       const r = await checkUrl(target);
       console.log(
-        "  SONUÇ:",
+        "  RESULT:",
         JSON.stringify({
           source: r.source,
           name: r.name,
@@ -120,7 +120,7 @@ app.whenReady().then(async () => {
         }),
       );
     } catch (e) {
-      console.log("  scrape hatası:", e instanceof Error ? e.message : e);
+      console.log("  scrape error:", e instanceof Error ? e.message : e);
     }
   }
   app.quit();

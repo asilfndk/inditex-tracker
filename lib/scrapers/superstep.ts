@@ -18,7 +18,7 @@ export class SuperstepScraper extends BaseScraper {
     try {
       const u = new URL(url);
       const parts = u.pathname.split("/").filter(Boolean);
-      // /urun/<slug>/<kod>/ → ürün kodu (ör. ki6678); aksi halde son segment.
+      // /urun/<slug>/<code>/ → product code (e.g. ki6678); otherwise the last segment.
       const idx = parts.indexOf("urun");
       let productId =
         idx >= 0 && parts.length > idx + 2

@@ -2,11 +2,11 @@ import { existsSync } from "node:fs";
 import { join } from "node:path";
 import type { BrowserWindow } from "electron";
 
-/** Ana pencere referansı ve "ürünler değişti" yayını için paylaşılan durum. */
+/** Shared state for the main-window reference and the "products changed" broadcast. */
 
 /**
- * Runtime ikon dosyasını hem dev'de (proje `resources/`) hem paketlenmiş .app
- * içinde (`process.resourcesPath`, bkz. electron-builder.yml extraResources) bulur.
+ * Locates a runtime icon file both in dev (project `resources/`) and inside
+ * the packaged .app (`process.resourcesPath`, see electron-builder.yml extraResources).
  */
 export function resolveAsset(filename: string): string {
   const candidates = [
@@ -32,7 +32,7 @@ export function registerWindowCreator(fn: () => void): void {
   windowCreator = fn;
 }
 
-/** Pencereyi göster; kapanmışsa yeniden oluştur. */
+/** Show the window; recreate it if it was closed. */
 export function showWindow(): void {
   if (mainWindow && !mainWindow.isDestroyed()) {
     if (mainWindow.isMinimized()) mainWindow.restore();
@@ -43,24 +43,24 @@ export function showWindow(): void {
   }
 }
 
-/** Renderer'a "listeyi yenile" sinyali gönder (varsa). */
+/** Send a "refresh the list" signal to the renderer (if present). */
 export function pingRenderer(): void {
   mainWindow?.webContents.send("products-changed");
 }
 
-/** Pencereyi öne al ve renderer'da ayarlar modalını aç (tray menüsünden). */
+/** Bring the window to front and open the settings modal in the renderer (from the tray menu). */
 export function openSettings(): void {
   showWindow();
-  // Pencere yeni oluşturulduysa renderer hazır olana dek küçük gecikme.
+  // Small delay so the renderer is ready if the window was just created.
   setTimeout(() => {
     getMainWindow()?.webContents.send("open-settings");
   }, 300);
 }
 
-/** Pencereyi öne al ve renderer'da ilgili ürünü seçili aç (bildirim tıklaması). */
+/** Bring the window to front and open the given product selected in the renderer (notification click). */
 export function openProduct(id: number): void {
   showWindow();
-  // Pencere yeni oluşturulduysa renderer hazır olana dek küçük gecikme.
+  // Small delay so the renderer is ready if the window was just created.
   setTimeout(() => {
     getMainWindow()?.webContents.send("open-product", id);
   }, 300);

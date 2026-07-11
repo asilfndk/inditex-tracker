@@ -17,7 +17,7 @@ export class WatsonsScraper extends BaseScraper {
   parseUrl(url: string): ParsedProduct | null {
     try {
       const u = new URL(url);
-      // .../<slug>/p/BP_1376242 → /p/'den sonraki segment ürün kodu
+      // .../<slug>/p/BP_1376242 → the segment after /p/ is the product code
       const m = u.pathname.match(/\/p\/([\w-]+)\/?$/);
       if (!m) return null;
       return { brand: this.brand, productId: m[1], url };

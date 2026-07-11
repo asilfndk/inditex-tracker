@@ -10,7 +10,7 @@ interface Props {
 }
 
 /**
- * Ana eylem: ürün bağlantısı yapıştırma komut çubuğu.
+ * Primary action: the paste-a-product-link command bar.
  */
 export function CheckBar({ onCheck, loading }: Props) {
   const [url, setUrl] = useState("");
@@ -35,7 +35,7 @@ export function CheckBar({ onCheck, loading }: Props) {
         value={url}
         onChange={(e) => setUrl(e.target.value)}
         onKeyDown={(e) => e.key === "Enter" && submit()}
-        placeholder="Bir ürün bağlantısı yapıştır…"
+        placeholder="Paste a product link…"
         spellCheck={false}
         autoFocus
         className="flex-1 bg-transparent font-mono text-sm text-ink outline-none placeholder:text-muted"
@@ -55,7 +55,7 @@ export function CheckBar({ onCheck, loading }: Props) {
         ) : (
           <ArrowRight className="h-4 w-4" strokeWidth={2} />
         )}
-        {loading ? "Kontrol ediliyor" : "Kontrol Et"}
+        {loading ? "Checking" : "Check"}
       </button>
     </div>
   );

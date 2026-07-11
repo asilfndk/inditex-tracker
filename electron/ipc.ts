@@ -25,17 +25,17 @@ import {
 } from "./updater";
 
 /**
- * Renderer ↔ Main köprüsü. Tüm kanallar beyaz listelidir ve preload üzerinden
- * `window.api.*` olarak açılır.
+ * Renderer ↔ Main bridge. All channels are whitelisted and exposed through
+ * preload as `window.api.*`.
  */
 export function registerIpc(): void {
   ipcMain.handle("check-url", async (_e, url: string) => checkUrl(url));
 
   ipcMain.handle("track", async (_e, input: TrackInput & { url: string }) => {
     const scraper = getScraperForUrl(input.url);
-    if (!scraper) throw new Error("Desteklenmeyen URL.");
+    if (!scraper) throw new Error("Unsupported URL.");
     const parsed = scraper.parseUrl(input.url);
-    if (!parsed) throw new Error("URL ayrıştırılamadı.");
+    if (!parsed) throw new Error("Could not parse the URL.");
     const product = trackProduct({
       ...input,
       brand: parsed.brand,
@@ -53,7 +53,7 @@ export function registerIpc(): void {
 
   ipcMain.handle("list-products", async () => listProducts());
 
-  // Ürün bazlı takip ayarları (ör. fiyat takibini sonradan aç/kapa).
+  // Per-product tracking settings (e.g. toggle price tracking later).
   ipcMain.handle(
     "update-product",
     async (
@@ -78,7 +78,7 @@ export function registerIpc(): void {
     if ("autoUpdateCheck" in patch) {
       if (next.autoUpdateCheck) {
         startAutoUpdateChecks();
-        void checkForUpdate(); // açar açmaz bir denetim
+        void checkForUpdate(); // check immediately when turned on
       } else {
         stopAutoUpdateChecks();
       }
@@ -86,7 +86,7 @@ export function registerIpc(): void {
     return next;
   });
 
-  // Manuel "şimdi kontrol et"
+  // Manual "check now"
   ipcMain.handle("check-now", async () => {
     await checkAll();
     return { ok: true };
@@ -97,13 +97,13 @@ export function registerIpc(): void {
     return { ok: true };
   });
 
-  // Test bildirimi: macOS kaydını tetikler + kullanıcıya çalıştığını gösterir.
+  // Test notification: triggers macOS registration + shows the user it works.
   ipcMain.handle("test-notification", async () => {
     notifyTest();
     return { ok: true };
   });
 
-  // Güncelleme denetimi (GitHub Releases).
+  // Update check (GitHub Releases).
   ipcMain.handle("get-app-version", async () => app.getVersion());
   ipcMain.handle("update-check", async () => checkForUpdate());
   ipcMain.handle("update-download", async () => downloadUpdate());

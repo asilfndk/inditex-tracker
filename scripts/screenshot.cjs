@@ -1,4 +1,4 @@
-// Statik export'u Electron'da yükleyip ekran görüntüsü alır (tasarım önizleme).
+// Loads the static export in Electron and takes a screenshot (design preview).
 const { app, BrowserWindow } = require("electron");
 const path = require("node:path");
 

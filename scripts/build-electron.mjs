@@ -10,7 +10,7 @@ const common = {
   format: "cjs",
   sourcemap: true,
   tsconfig: "tsconfig.json",
-  // Native ve Electron'a ait modüller paketlenmez.
+  // Native and Electron-owned modules are not bundled.
   external: ["electron", "better-sqlite3"],
   logLevel: "info",
 };
@@ -31,4 +31,4 @@ for (const e of entries) {
   }
 }
 
-if (!watch) console.log("electron build tamam → dist-electron/");
+if (!watch) console.log("electron build done → dist-electron/");

@@ -1,16 +1,16 @@
 import { app } from "electron";
 
-/** Girişte otomatik başlatma (macOS Login Items). */
+/** Launch at login (macOS Login Items). */
 
 export function setAutoLaunch(enabled: boolean): void {
   try {
     app.setLoginItemSettings({
       openAtLogin: enabled,
-      openAsHidden: true, // arka planda (tray) başla
+      openAsHidden: true, // start in the background (tray)
     });
   } catch (err) {
-    // İmzasız / translocated app'te izin verilmeyebilir — kritik değil.
-    console.warn("[autolaunch] login item ayarlanamadı:", err);
+    // May be denied for an unsigned / translocated app — not critical.
+    console.warn("[autolaunch] could not set login item:", err);
   }
 }
 

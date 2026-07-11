@@ -1,4 +1,4 @@
-// Renderer ↔ Main köprüsünün (preload.ts) renderer tarafındaki tip tanımı.
+// Renderer-side type definition of the renderer ↔ main bridge (preload.ts).
 
 export type Brand =
   | "zara"
@@ -18,19 +18,19 @@ export type Brand =
 export interface SizeAvailability {
   label: string;
   inStock: boolean;
-  /** Varyant bazlı fiyat (ör. Sephora ml boyları) — çoğu markada yok */
+  /** Per-variant price (e.g. Sephora ml sizes) — absent for most brands */
   price?: number | null;
 }
 
-/** Renge özel varyant verisi — renk seçilince görsel/beden/fiyat bundan güncellenir */
+/** Color-specific variant data — image/sizes/price update from this on color selection */
 export interface ColorVariant {
   color: string;
-  /** Renge özel ürün URL'i (?v1=<id>) — takip bu URL'le yapılır */
+  /** Color-specific product URL (?v1=<id>) — tracking uses this URL */
   url?: string | null;
   imageUrl?: string | null;
   sizes?: SizeAvailability[];
   price?: number | null;
-  /** Bedensiz renk varyantının stok durumu (ör. Sephora shade'leri) */
+  /** Stock status of a sizeless color variant (e.g. Sephora shades) */
   inStock?: boolean | null;
 }
 
@@ -42,7 +42,7 @@ export interface ProductStock {
   colors: string[];
   sizes: SizeAvailability[];
   inStock: boolean;
-  /** Renk başına görsel/beden/URL (Zara, Mango ve Sephora üretir) */
+  /** Per-color image/sizes/URL (produced by Zara, Mango and Sephora) */
   colorVariants?: ColorVariant[];
 }
 
@@ -64,9 +64,9 @@ export interface TrackedProduct {
   lastPrice: number | null;
   lastInStock: boolean | null;
   lowestPrice: number | null;
-  /** JSON SizeAvailability[] — son kontrolün beden matrisi */
+  /** JSON SizeAvailability[] — size matrix of the last check */
   lastSizes: string | null;
-  /** JSON string[] — son kontrolün renk listesi */
+  /** JSON string[] — color list of the last check */
   lastColors: string | null;
   createdAt: Date;
   lastCheckedAt: Date | null;

@@ -2,7 +2,7 @@ import { BaseScraper } from "./base";
 import { GRATIS_PAGE_SCRIPT } from "./page-script";
 import type { ColorVariant, ParsedProduct, ProductStock } from "./types";
 
-/** getProductDetail yanıtının kullanılan alt kümesi */
+/** The subset of the getProductDetail response that we use */
 interface GratisDetail {
   product?: {
     stockStatus?: string;
@@ -37,7 +37,7 @@ export class GratisScraper extends BaseScraper {
   parseUrl(url: string): ParsedProduct | null {
     try {
       const u = new URL(url);
-      // .../<slug>-p-10209728 → ürün kodu son "-p-" segmentinde
+      // .../<slug>-p-10209728 → product code is in the last "-p-" segment
       const m = u.pathname.match(/-p-(\d+)\/?$/);
       if (!m) return null;
       return { brand: this.brand, productId: m[1], url };
@@ -47,12 +47,13 @@ export class GratisScraper extends BaseScraper {
   }
 
   /**
-   * Katman 1 — Gratis'in halka açık retter.io API'si (auth gerekmez):
-   * `CALL/Product/getProductDetail/<id>`. Fiyatlar kuruş cinsindendir (/100);
-   * JSON-LD'deki koşullu kampanya fiyatı yerine gerçek satış fiyatı
-   * (`discountedPrice`) kullanılır. Kardeş varyantların gerçek fotoğrafı yalnız
-   * kendi detay yanıtında olduğundan `colorVariants[].imageUrl` verilmez —
-   * renderer renk seçilince varyant URL'ini `checkUrl` ile tembel çeker.
+   * Layer 1 — Gratis's public retter.io API (no auth required):
+   * `CALL/Product/getProductDetail/<id>`. Prices are in kurus, i.e. 1/100 TRY (/100);
+   * the real sale price (`discountedPrice`) is used instead of the
+   * conditional campaign price in JSON-LD. Sibling variants' real photos
+   * only exist in their own detail responses, so `colorVariants[].imageUrl`
+   * is omitted — the renderer lazily fetches the variant URL via `checkUrl`
+   * when a color is selected.
    */
   async fetchFromApi(parsed: ParsedProduct): Promise<ProductStock | null> {
     const data = (await this.fetchJson(

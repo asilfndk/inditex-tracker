@@ -15,7 +15,7 @@ const DEFAULT_CRON = "*/15 * * * *";
 let task: ScheduledTask | null = null;
 let running = false;
 
-/** Hedef beden varsa o bedenin stoğu, yoksa genel stok durumu. */
+/** Stock of the target size if one is set, otherwise the overall stock status. */
 function effectiveInStock(p: TrackedProduct, res: ScrapeResult): boolean {
   if (p.targetSize) {
     const match = res.sizes.find(
@@ -31,23 +31,23 @@ async function checkOne(p: TrackedProduct): Promise<void> {
   try {
     res = await checkUrl(p.url);
   } catch (err) {
-    // Ağ/bot hatası: durumu koru, sessizce geç (edge case #4, #6).
-    console.warn(`[scheduler] ${p.brand} kontrol atlandı:`, err);
+    // Network/bot error: keep the current state, skip silently (edge cases #4, #6).
+    console.warn(`[scheduler] ${p.brand} check skipped:`, err);
     return;
   }
 
   const nowInStock = effectiveInStock(p, res);
   const wasInStock = p.lastInStock ?? false;
-  // Genel bildirim anahtarları (ayarlardan); ürün bazlı track* ile birlikte değerlendirilir.
+  // Global notification switches (from settings); evaluated together with per-product track*.
   const s = getSettings();
 
-  // Stok geçişi: yok → var (yalnızca bir kez bildir — edge case #8)
+  // Stock transition: out → in (notify only once — edge case #8)
   if (s.notifyStock && p.trackStock && !wasInStock && nowInStock) {
-    notifyRestock(p.name ?? "Ürün", p.id, p.targetSize);
+    notifyRestock(p.name ?? "Product", p.id, p.targetSize);
   }
 
-  // Hedef bedenin kendi fiyatı varsa (ör. Sephora ml varyantları) onu izle;
-  // yoksa ürün geneli fiyat.
+  // If the target size has its own price (e.g. Sephora ml variants) track that;
+  // otherwise the product-wide price.
   const effPrice =
     (p.targetSize
       ? res.sizes.find(
@@ -55,20 +55,20 @@ async function checkOne(p: TrackedProduct): Promise<void> {
         )?.price
       : null) ?? res.price;
 
-  // Fiyat düşüşü: baseline = görülen en düşük fiyat (kademeli düşüşler kaçmaz).
-  // Fiyat sonradan yükselir ve tekrar en düşüğün üstünde bir seviyeye inerse
-  // bildirim gelmez — bilinçli tasarım.
+  // Price drop: baseline = lowest price ever seen (gradual drops are not missed).
+  // If the price later rises and then falls to a level still above the lowest,
+  // no notification is sent — deliberate design.
   if (effPrice != null) {
-    const baseline = p.lowestPrice ?? p.lastPrice; // eski kayıtlar için ilk kontrolde backfill
+    const baseline = p.lowestPrice ?? p.lastPrice; // backfill on first check for old records
     if (
       s.notifyPrice &&
       p.trackPrice &&
       baseline != null &&
       effPrice < baseline
     ) {
-      notifyPriceDrop(p.name ?? "Ürün", p.id, baseline, effPrice);
+      notifyPriceDrop(p.name ?? "Product", p.id, baseline, effPrice);
     }
-    // Baseline bakımı bildirim anahtarlarından bağımsız — hep doğru kalsın.
+    // Baseline maintenance is independent of notification switches — keep it always correct.
     if (baseline == null || effPrice < baseline) {
       updateProduct(p.id, { lowestPrice: effPrice });
     }
@@ -77,12 +77,12 @@ async function checkOne(p: TrackedProduct): Promise<void> {
   recordCheck(p.id, nowInStock, effPrice, res.sizes, res.colors, res.imageUrl);
 }
 
-// Tur içi eşzamanlılık: browser semaforunu (2) doldurur + API-yolu kontrollerine pay bırakır.
+// In-round concurrency: saturates the browser semaphore (2) + leaves room for API-path checks.
 const CHECK_CONCURRENCY = 3;
 
-/** Tüm takip listesini paralel kontrol et (browser eşzamanlılığı ayrıca sınırlı). */
+/** Check the whole watchlist in parallel (browser concurrency is limited separately). */
 export async function checkAll(): Promise<void> {
-  if (running) return; // çakışan turları engelle
+  if (running) return; // prevent overlapping rounds
   running = true;
   try {
     const queue = listProducts();
@@ -114,19 +114,19 @@ function schedule(expr: string): void {
   task = cron.schedule(valid, () => {
     void checkAll();
   });
-  console.log(`[scheduler] zamanlandı: ${valid}`);
+  console.log(`[scheduler] scheduled: ${valid}`);
 }
 
 export function startScheduler(): void {
   schedule(getSettings().checkIntervalCron);
   refreshBadge();
-  // Açılışta sıradaki cron sınırını beklemeden bir kez kontrol et (kullanıcı geri bildirimi).
+  // Run one check on startup without waiting for the next cron boundary (user feedback).
   void checkAll();
 }
 
-/** Ayar değişince yeniden zamanla. */
+/** Reschedule when the setting changes. */
 export function reschedule(): void {
   schedule(getSettings().checkIntervalCron);
-  // Yeni ritmin çalıştığını anında göster: sıradaki sınırı beklemeden kontrol et.
+  // Show the new cadence working immediately: check without waiting for the next boundary.
   void checkAll();
 }

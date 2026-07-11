@@ -17,7 +17,7 @@ export class MangoScraper extends BaseScraper {
   parseUrl(url: string): ParsedProduct | null {
     try {
       const u = new URL(url);
-      // /tr/tr/p/.../27045166/99/00 → ilk 6+ haneli segment ürün kodu
+      // /tr/tr/p/.../27045166/99/00 → first 6+ digit segment is the product code
       const seg = u.pathname
         .split("/")
         .filter(Boolean)

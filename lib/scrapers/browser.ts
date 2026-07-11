@@ -1,18 +1,18 @@
 import { productStockSchema, type ProductStock } from "./types";
 
 /**
- * Katman 2 — Gizli Electron BrowserWindow ile scraping.
+ * Layer 2 — scraping with a hidden Electron BrowserWindow.
  *
- * Yalnızca Electron ana sürecinde çalışır (BrowserWindow orada bulunur).
- * Her marka scraper'ı, sayfa içinde çalışacak bir `pageScript` verir; bu script
- * sayfanın DOM/state'inden ham ürün verisini okuyup döndürür. Sonuç burada
- * normalize edilip `productStockSchema` ile doğrulanır.
+ * Runs only in the Electron main process (BrowserWindow lives there).
+ * Each brand scraper provides a `pageScript` executed inside the page; the
+ * script reads raw product data from the page's DOM/state and returns it.
+ * The result is normalized here and validated with `productStockSchema`.
  */
 
 const USER_AGENT =
   "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36";
 
-// Aynı anda çok pencere açıp belleği/markayı yormamak için basit eşzamanlılık sınırı.
+// Simple concurrency limit so we do not open many windows at once and strain memory/the brand.
 const MAX_CONCURRENT = 2;
 let active = 0;
 const queue: Array<() => void> = [];
@@ -32,7 +32,7 @@ function release(): void {
   if (next) next();
 }
 
-// Electron'u lazy yükle: Node-only ortamda (smoke test) import patlamasın.
+// Lazy-load Electron: keeps the import from blowing up in a Node-only environment (smoke test).
 type ElectronModule = typeof import("electron");
 function loadElectron(): ElectronModule {
   try {
@@ -40,15 +40,15 @@ function loadElectron(): ElectronModule {
     return require("electron") as ElectronModule;
   } catch {
     throw new Error(
-      "BrowserWindow scraping yalnızca Electron ana sürecinde kullanılabilir.",
+      "BrowserWindow scraping is only available in the Electron main process.",
     );
   }
 }
 
 /**
- * Görsel/medya/font isteklerini iptal et: çıkarım yalnızca DOM + JSON-LD okur
- * (imageUrl da meta'dan gelir), sayfa yükü büyük oranda düşer. script/css/xhr
- * serbest — SPA state ve Akamai sensörü çalışmaya devam etmeli.
+ * Cancel image/media/font requests: extraction only reads DOM + JSON-LD
+ * (imageUrl comes from meta too), cutting the page load substantially.
+ * script/css/xhr stay allowed — SPA state and the Akamai sensor must keep working.
  */
 function blockHeavyResources(win: import("electron").BrowserWindow): void {
   win.webContents.session.webRequest.onBeforeRequest(
@@ -60,7 +60,7 @@ function blockHeavyResources(win: import("electron").BrowserWindow): void {
   );
 }
 
-/** Akamai bot korumasını aşmak için gerçekçi tarayıcı header'ları (oturum başına bir kez). */
+/** Realistic browser headers to get past Akamai bot protection (once per session). */
 function applyRealisticHeaders(win: import("electron").BrowserWindow): void {
   win.webContents.session.webRequest.onBeforeSendHeaders((details, cb) => {
     const h = details.requestHeaders;
@@ -93,12 +93,12 @@ export async function scrapeWithBrowser(
       width: 1280,
       height: 900,
       webPreferences: {
-        // offscreen DOM scraping için gerekmez ve bazı ortamlarda kırılgan;
-        // normal gizli pencere daha güvenilir.
+        // offscreen is not needed for DOM scraping and is fragile in some
+        // environments; a plain hidden window is more reliable.
         nodeIntegration: false,
         contextIsolation: true,
-        // Ayrı session: header hook'u ve kaynak filtresi ana pencerenin
-        // (Next.js içeriği, ürün görselleri) session'ına sızmasın.
+        // Separate session: keeps the header hook and resource filter from
+        // leaking into the main window's session (Next.js content, product images).
         partition: "scrape",
       },
     });
@@ -114,7 +114,7 @@ export async function scrapeWithBrowser(
     const normalized = normalizeRaw(raw);
     const parsed = productStockSchema.safeParse(normalized);
     if (!parsed.success) {
-      throw new Error(`Sayfa verisi şemaya uymuyor: ${parsed.error.message}`);
+      throw new Error(`Page data does not match the schema: ${parsed.error.message}`);
     }
     return parsed.data;
   } finally {
@@ -129,13 +129,14 @@ async function loadAndExtract(
   url: string,
   pageScript: string,
 ): Promise<unknown> {
-  // ERR_ABORTED (locale yönlendirmesi) ve ERR_FAILED (başarısız alt-kaynak/redirect
-  // ana çerçeveyi "failed" işaretler) durumlarında DOM yine de render olur → yut ve
-  // çıkarıma devam et. Yalnızca gerçek ağ/iç hataları (DNS, bağlantı yok) yukarı taşı.
+  // On ERR_ABORTED (locale redirect) and ERR_FAILED (a failed sub-resource/redirect
+  // marks the main frame "failed") the DOM still renders — swallow and continue
+  // extraction. Only propagate real network/internal errors (DNS, no connection).
   const SOFT_LOAD_ERRORS = new Set(["ERR_ABORTED", "ERR_FAILED"]);
-  // loadURL, did-finish-load'a bağlı: ağır sayfalarda (Zara — analytics, bot
-  // sensörleri, uzun süren istekler) timeout içinde hiç çözülmeyebilir. Çıkarım
-  // için DOM yeterli → dom-ready ile yarıştır, hangisi önce gelirse devam et.
+  // loadURL is tied to did-finish-load: on heavy pages (Zara — analytics, bot
+  // sensors, long-running requests) it may never resolve within the timeout.
+  // The DOM is enough for extraction — race against dom-ready and continue with
+  // whichever comes first.
   const domReady = new Promise<void>((resolve) =>
     win.webContents.once("dom-ready", () => resolve()),
   );
@@ -145,11 +146,11 @@ async function loadAndExtract(
       if (e?.code && !SOFT_LOAD_ERRORS.has(e.code)) throw e;
     });
   await Promise.race([load, domReady]);
-  // Yarışı dom-ready kazanırsa load sahipsiz kalıp reddedilebilir — yut.
+  // If dom-ready wins the race, load may be left orphaned and reject — swallow it.
   void load.catch(() => {});
-  // Sayfanın JS state'ini (JSON-LD) doldurması için bekleme.
+  // Wait for the page to populate its JS state (JSON-LD).
   await new Promise((r) => setTimeout(r, 3000));
-  // async sarmalayıcı: marka scriptleri beden panelini açmak için await edebilir.
+  // async wrapper: brand scripts may await to open the size panel.
   return win.webContents.executeJavaScript(
     `(async function(){
        const __sleep = (ms) => new Promise(r => setTimeout(r, ms));
@@ -163,16 +164,16 @@ function withTimeout<T>(p: Promise<T>, ms: number): Promise<T> {
   return Promise.race([
     p,
     new Promise<T>((_, reject) =>
-      setTimeout(() => reject(new Error(`Zaman aşımı (${ms}ms)`)), ms),
+      setTimeout(() => reject(new Error(`Timed out (${ms}ms)`)), ms),
     ),
   ]);
 }
 
-/** Ham sayfa verisini ProductStock'a normalize eder (browser + JSON-LD ortak) */
+/** Normalizes raw page data into ProductStock (shared by browser + JSON-LD) */
 export function normalizeRaw(raw: unknown): unknown {
   if (raw && typeof raw === "object" && "__error" in raw) {
     throw new Error(
-      `Sayfa içi çıkarım hatası: ${(raw as { __error: string }).__error}`,
+      `In-page extraction error: ${(raw as { __error: string }).__error}`,
     );
   }
   const r = (raw ?? {}) as Record<string, unknown>;
@@ -218,7 +219,7 @@ export function normalizeRaw(raw: unknown): unknown {
         .filter((v) => v.color)
     : [];
   return {
-    name: String(r.name ?? "Bilinmeyen ürün"),
+    name: String(r.name ?? "Unknown product"),
     price: toNumber(r.price),
     currency: r.currency ? String(r.currency) : null,
     imageUrl: r.imageUrl ? String(r.imageUrl) : null,

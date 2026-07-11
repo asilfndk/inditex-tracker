@@ -12,14 +12,15 @@ interface Props {
   url: string;
   result: ScrapeResult;
   onTracked: () => void;
-  /** Önbellek görünümü arka planda tazelenirken true (küçük rozet gösterilir). */
+  /** True while the cache view refreshes in the background (small badge shown). */
   refreshing?: boolean;
-  /** İzleme listesinden açılınca hedef beden/renk ön-seçili gelir. */
+  /** When opened from the watchlist, the target size/color comes pre-selected. */
   initialSize?: string | null;
   initialColor?: string | null;
   /**
-   * Takipteki kombolar (url+beden+renk). Seçili kombo bunlardan biriyle
-   * eşleşirse buton "Zaten takipte" olur; farklı kombo seçilince aktifleşir.
+   * Tracked combos (url+size+color). If the selected combo matches one of
+   * these, the button becomes "Already tracked"; picking a different combo
+   * re-enables it.
    */
   tracked?: {
     url: string;
@@ -29,9 +30,10 @@ interface Props {
 }
 
 /**
- * URL ile eşleşen varyantın rengi; yoksa ilk renk.
- * Zara varyantı `?v1=` parametresiyle, Mango path'teki renk segmentiyle ayrışır —
- * ikisi de varyant `url`'ine gömülü olduğundan önce v1, sonra path karşılaştırılır.
+ * The color of the variant matching the URL; otherwise the first color.
+ * A Zara variant is distinguished by the `?v1=` parameter, Mango by the color
+ * segment in the path — both are embedded in the variant `url`, so v1 is
+ * compared first, then the path.
  */
 function defaultColor(result: ScrapeResult, url: string): string | null {
   try {
@@ -54,7 +56,7 @@ function defaultColor(result: ScrapeResult, url: string): string | null {
       if (m) return m.color;
     }
   } catch {
-    // URL ayrıştırılamazsa ilk renge düş.
+    // If the URL can't be parsed, fall back to the first color.
   }
   return result.colors[0] ?? null;
 }
@@ -72,18 +74,18 @@ export function ProductResult({
   const [color, setColor] = useState<string | null>(
     initialColor ?? defaultColor(result, url),
   );
-  // Tembel çekilen varyant verisi (renk → canlı sonuç). Bazı markalarda (Gratis)
-  // varyantın gerçek fotoğrafı/fiyatı yalnız kendi sayfasında/detayında olduğundan
-  // renk seçilince arka planda checkUrl(variant.url) ile tamamlanır.
+  // Lazily fetched variant data (color → live result). For some brands (Gratis)
+  // the variant's real photo/price only exists on its own page/detail, so on
+  // color selection it is completed in the background via checkUrl(variant.url).
   const [variantData, setVariantData] = useState<Record<string, ScrapeResult>>(
     {},
   );
   const [variantLoading, setVariantLoading] = useState(false);
-  // Hızlı renk değişiminde geç dönen çekim spinner'ı yanlış kapatmasın.
+  // Keep a late-returning fetch from wrongly hiding the spinner on rapid color changes.
   const variantToken = useRef(0);
 
-  // Seçili rengin varyant verisi (varsa) — görsel/beden/fiyat buradan gelir;
-  // tembel çekilmiş canlı veri (fetched) varyant snapshot'ını önceler.
+  // Variant data of the selected color (if any) — image/sizes/price come from
+  // it; lazily fetched live data (fetched) takes precedence over the variant snapshot.
   const variant =
     (color && result.colorVariants?.find((v) => v.color === color)) || null;
   const fetched = (color && variantData[color]) || null;
@@ -98,10 +100,10 @@ export function ProductResult({
     : variant?.sizes?.length
       ? variant.sizes.some((s) => s.inStock)
       : (variant?.inStock ?? result.inStock);
-  // Takip + "Sitede aç" renge özel URL ile — scheduler doğru varyantı kontrol eder.
+  // Tracking + "Open on site" use the color-specific URL — the scheduler checks the right variant.
   const activeUrl = variant?.url ?? url;
-  // Repo'daki dedup kuralıyla aynı ('' coalescing dahil): sadece seçili kombo
-  // zaten takipteyse buton kilitlenir; farklı beden/renk seçilince açılır.
+  // Same dedup rule as the repo ('' coalescing included): the button locks only
+  // when the selected combo is already tracked; picking a different size/color unlocks it.
   const alreadyTracked = tracked.some(
     (t) =>
       t.url === activeUrl &&
@@ -111,14 +113,14 @@ export function ProductResult({
 
   function selectColor(c: string | null) {
     setColor(c);
-    // Yeni rengin beden listesinde seçili beden yoksa seçimi bırak.
+    // Drop the selection if the new color's size list lacks the selected size.
     const next =
       (c && result.colorVariants?.find((v) => v.color === c)) || null;
     const sizesFor = next?.sizes?.length ? next.sizes : result.sizes;
     if (size && !sizesFor.some((s) => s.label === size)) setSize(null);
 
-    // Tembel varyant çekimi: varyantın URL'i var ama görseli yoksa (Gratis)
-    // gerçek fotoğraf/fiyat/stok arka planda kendi detayından alınır.
+    // Lazy variant fetch: if the variant has a URL but no image (Gratis), the
+    // real photo/price/stock are fetched in the background from its own detail.
     const token = ++variantToken.current;
     if (c && next?.url && next.imageUrl == null && !variantData[c]) {
       setVariantLoading(true);
@@ -128,7 +130,7 @@ export function ProductResult({
           setVariantData((m) => ({ ...m, [c]: res }));
         })
         .catch(() => {
-          // Çekim başarısız: ürün geneli gösterilmeye devam eder.
+          // Fetch failed: keep showing the product-wide data.
         })
         .finally(() => {
           if (variantToken.current === token) setVariantLoading(false);
@@ -145,9 +147,9 @@ export function ProductResult({
   async function track() {
     setTracking(true);
     try {
-      // Hedef beden seçiliyse o bedenin stok durumu; yoksa ürün geneli
-      // (scheduler.effectiveInStock ile aynı kural) — böylece tükenmiş bir beden
-      // takibe alınınca liste noktası anında kırmızı olur.
+      // If a target size is selected, that size's stock status; otherwise the
+      // product-wide one (same rule as scheduler.effectiveInStock) — so tracking a
+      // sold-out size turns the list dot red immediately.
       const targetSize = size
         ? activeSizes.find(
             (s) => s.label.toLowerCase() === size.toLowerCase(),
@@ -180,14 +182,14 @@ export function ProductResult({
 
   return (
     <article className="grid gap-8 border border-hairline bg-paper-raised p-6 sm:grid-cols-[200px_1fr]">
-      {/* Görsel — key: URL değişince remount olur, hata durumu sıfırlanır */}
+      {/* Image — key: remounts when the URL changes, resetting the error state */}
       <ProductImage
         key={activeImage ?? "none"}
         imageUrl={activeImage}
         name={result.name}
       />
 
-      {/* Detay */}
+      {/* Details */}
       <div className="flex flex-col">
         <div className="flex items-center gap-2 font-mono text-[11px] uppercase tracking-[0.2em] text-muted">
           <span
@@ -196,19 +198,19 @@ export function ProductResult({
               activeInStock ? "bg-in-stock" : "bg-signal",
             )}
           />
-          {activeInStock ? "Stokta" : "Tükendi"}
+          {activeInStock ? "In stock" : "Sold out"}
           <span className="text-hairline">·</span>
           <span>
             {result.source === "api"
               ? "API"
               : result.source === "browser"
-                ? "Tarayıcı"
-                : "Önbellek"}
+                ? "Browser"
+                : "Cache"}
           </span>
           {(refreshing || variantLoading) && (
             <span className="flex items-center gap-1 text-ink-soft">
               <Loader2 className="h-3 w-3 animate-spin" />
-              yenileniyor…
+              refreshing…
             </span>
           )}
         </div>
@@ -219,7 +221,7 @@ export function ProductResult({
 
         <p className="mt-1 font-display text-4xl font-light tracking-tight text-ink">
           {formatPrice(
-            // Seçili bedenin kendi fiyatı varsa (ör. Sephora ml boyları) onu göster
+            // If the selected size has its own price (e.g. Sephora ml sizes), show it
             (size
               ? activeSizes.find((s) => s.label === size)?.price
               : null) ??
@@ -230,11 +232,11 @@ export function ProductResult({
           )}
         </p>
 
-        {/* Renk */}
+        {/* Color */}
         {result.colors.length > 0 && (
           <div className="mt-5">
             <p className="mb-2 font-mono text-[11px] uppercase tracking-[0.2em] text-muted">
-              Renk
+              Color
             </p>
             <div className="flex flex-wrap gap-1.5">
               {result.colors.map((c) => (
@@ -256,10 +258,10 @@ export function ProductResult({
           </div>
         )}
 
-        {/* Beden matrisi — önbellekte snapshot yoksa skeleton */}
+        {/* Size matrix — skeleton when the cache has no snapshot */}
         <div className="mt-5">
           <p className="mb-2 font-mono text-[11px] uppercase tracking-[0.2em] text-muted">
-            Beden{size ? ` · ${size}` : ""}
+            Size{size ? ` · ${size}` : ""}
           </p>
           {activeSizes.length === 0 && result.source === "cache" ? (
             <div className="flex flex-wrap gap-1.5">
@@ -280,23 +282,23 @@ export function ProductResult({
           )}
         </div>
 
-        {/* Bildirim seçenekleri */}
+        {/* Notification options */}
         <div className="mt-6 flex flex-wrap gap-4 border-t border-hairline pt-4">
           <Toggle
             active={notifyStock}
             onClick={() => setNotifyStock((v) => !v)}
             icon={<Bell className="h-3.5 w-3.5" />}
-            label="Stok gelince bildir"
+            label="Notify on restock"
           />
           <Toggle
             active={notifyPrice}
             onClick={() => setNotifyPrice((v) => !v)}
             icon={<Tag className="h-3.5 w-3.5" />}
-            label="Fiyat düşünce bildir"
+            label="Notify on price drop"
           />
         </div>
 
-        {/* Eylemler */}
+        {/* Actions */}
         <div className="mt-auto flex items-center gap-3 pt-6">
           <button
             type="button"
@@ -321,10 +323,10 @@ export function ProductResult({
               <Bell className="h-4 w-4" />
             )}
             {alreadyTracked
-              ? "Zaten takipte"
+              ? "Already tracked"
               : done
-                ? "Takibe alındı"
-                : "Takibe Al"}
+                ? "Now tracking"
+                : "Track"}
           </button>
           <button
             type="button"
@@ -332,7 +334,7 @@ export function ProductResult({
             className="no-drag flex h-10 items-center gap-2 px-4 text-sm text-ink-soft transition-colors hover:text-ink"
           >
             <ExternalLink className="h-4 w-4" />
-            Sitede aç
+            Open on site
           </button>
         </div>
       </div>
@@ -399,7 +401,7 @@ function ProductImage({
         />
       ) : (
         <div className="flex h-full items-center justify-center font-mono text-xs uppercase tracking-widest text-muted">
-          görsel yok
+          no image
         </div>
       )}
     </div>

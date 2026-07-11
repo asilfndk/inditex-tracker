@@ -34,13 +34,13 @@ export function formatPrice(
 }
 
 export function timeAgo(date: Date | string | null): string {
-  if (!date) return "hiç";
+  if (!date) return "never";
   const d = typeof date === "string" ? new Date(date) : date;
   const secs = Math.floor((Date.now() - d.getTime()) / 1000);
-  if (secs < 60) return "az önce";
+  if (secs < 60) return "just now";
   const mins = Math.floor(secs / 60);
-  if (mins < 60) return `${mins} dk önce`;
+  if (mins < 60) return `${mins} min ago`;
   const hrs = Math.floor(mins / 60);
-  if (hrs < 24) return `${hrs} sa önce`;
-  return `${Math.floor(hrs / 24)} gün önce`;
+  if (hrs < 24) return `${hrs} h ago`;
+  return `${Math.floor(hrs / 24)} d ago`;
 }

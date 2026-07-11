@@ -1,8 +1,8 @@
 import { contextBridge, ipcRenderer } from "electron";
 
 /**
- * Güvenli köprü: renderer'a yalnızca beyaz listeli kanalları açar.
- * `contextIsolation: true`, `nodeIntegration: false` ile birlikte çalışır.
+ * Secure bridge: exposes only whitelisted channels to the renderer.
+ * Works together with `contextIsolation: true`, `nodeIntegration: false`.
  */
 const api = {
   checkUrl: (url: string) => ipcRenderer.invoke("check-url", url),
@@ -17,25 +17,25 @@ const api = {
   checkNow: () => ipcRenderer.invoke("check-now"),
   testNotification: () => ipcRenderer.invoke("test-notification"),
   openExternal: (url: string) => ipcRenderer.invoke("open-external", url),
-  // Arka plan kontrolü liste değiştirince renderer'ı haberdar et.
+  // Notify the renderer when a background check changes the list.
   onProductsChanged: (cb: () => void) => {
     const handler = () => cb();
     ipcRenderer.on("products-changed", handler);
     return () => ipcRenderer.removeListener("products-changed", handler);
   },
-  // Bildirim tıklanınca ilgili ürünü panelde aç.
+  // Open the related product in the panel when a notification is clicked.
   onOpenProduct: (cb: (id: number) => void) => {
     const handler = (_e: unknown, id: number) => cb(id);
     ipcRenderer.on("open-product", handler);
     return () => ipcRenderer.removeListener("open-product", handler);
   },
-  // Tray menüsündeki "Ayarlar…" tıklanınca ayar modalını aç.
+  // Open the settings modal when "Settings…" is clicked in the tray menu.
   onOpenSettings: (cb: () => void) => {
     const handler = () => cb();
     ipcRenderer.on("open-settings", handler);
     return () => ipcRenderer.removeListener("open-settings", handler);
   },
-  // Güncelleme denetimi.
+  // Update checks.
   getAppVersion: () => ipcRenderer.invoke("get-app-version"),
   checkForUpdate: () => ipcRenderer.invoke("update-check"),
   downloadUpdate: () => ipcRenderer.invoke("update-download"),

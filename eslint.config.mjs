@@ -12,10 +12,10 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
-    // esbuild ile üretilen Electron bundle'ı — lint'lenmemeli (artifact).
+    // Electron bundle produced by esbuild — must not be linted (artifact).
     "dist-electron/**",
   ]),
-  // CommonJS build/yardımcı scriptleri — require() bunlarda meşrudur.
+  // CommonJS build/helper scripts — require() is legitimate in these.
   {
     files: ["scripts/**/*.cjs"],
     rules: {

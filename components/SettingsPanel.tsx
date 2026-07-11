@@ -7,10 +7,10 @@ import { cn } from "@/lib/cn";
 import type { AppSettings, UpdateState } from "@/types/global";
 
 const INTERVALS: { label: string; cron: string }[] = [
-  { label: "5 dk", cron: "*/5 * * * *" },
-  { label: "15 dk", cron: "*/15 * * * *" },
-  { label: "30 dk", cron: "*/30 * * * *" },
-  { label: "Saatlik", cron: "0 * * * *" },
+  { label: "5 min", cron: "*/5 * * * *" },
+  { label: "15 min", cron: "*/15 * * * *" },
+  { label: "30 min", cron: "*/30 * * * *" },
+  { label: "Hourly", cron: "0 * * * *" },
 ];
 
 export function SettingsPanel({ onClose }: { onClose: () => void }) {
@@ -21,8 +21,8 @@ export function SettingsPanel({ onClose }: { onClose: () => void }) {
   useEffect(() => {
     getApi().getSettings().then(setS);
     getApi().getAppVersion().then(setVersion);
-    // Açılıştaki sessiz denetimin sonucu da dahil mevcut durumu al,
-    // sonra canlı durum değişikliklerine abone ol.
+    // Get the current state, including the result of the silent startup
+    // check, then subscribe to live state changes.
     getApi().getUpdateState().then(setUpdate);
     return getApi().onUpdateState(setUpdate);
   }, []);
@@ -38,18 +38,18 @@ export function SettingsPanel({ onClose }: { onClose: () => void }) {
     <div className="fixed inset-0 z-50 flex items-start justify-center bg-ink/20 pt-24">
       <div className="w-full max-w-md border border-hairline bg-paper-raised p-6 shadow-2xl">
         <div className="flex items-center justify-between">
-          <h2 className="font-display text-xl font-semibold text-ink">Ayarlar</h2>
+          <h2 className="font-display text-xl font-semibold text-ink">Settings</h2>
           <button
             type="button"
             onClick={onClose}
             className="text-muted hover:text-ink"
-            aria-label="Kapat"
+            aria-label="Close"
           >
             <X className="h-5 w-5" />
           </button>
         </div>
 
-        <Section label="Kontrol sıklığı">
+        <Section label="Check frequency">
           <div className="flex gap-1.5">
             {INTERVALS.map((it) => (
               <button
@@ -69,14 +69,14 @@ export function SettingsPanel({ onClose }: { onClose: () => void }) {
           </div>
         </Section>
 
-        <Section label="Bildirimler">
+        <Section label="Notifications">
           <Switch
-            label="Stok gelince bildir"
+            label="Notify on restock"
             checked={s.notifyStock}
             onChange={(v) => patch({ notifyStock: v })}
           />
           <Switch
-            label="Fiyat düşünce bildir"
+            label="Notify on price drop"
             checked={s.notifyPrice}
             onChange={(v) => patch({ notifyPrice: v })}
           />
@@ -85,21 +85,21 @@ export function SettingsPanel({ onClose }: { onClose: () => void }) {
             onClick={() => getApi().testNotification()}
             className="mt-1 self-start border border-hairline px-3 py-1.5 text-xs text-ink-soft transition-colors hover:border-ink"
           >
-            Test bildirimi gönder
+            Send test notification
           </button>
         </Section>
 
-        <Section label="Sistem">
+        <Section label="System">
           <Switch
-            label="Girişte otomatik başlat"
+            label="Launch at login"
             checked={s.autolaunch}
             onChange={(v) => patch({ autolaunch: v })}
           />
         </Section>
 
-        <Section label="Güncelleme">
+        <Section label="Updates">
           <Switch
-            label="Güncellemeleri otomatik denetle (24 saatte bir)"
+            label="Check for updates automatically (every 24h)"
             checked={s.autoUpdateCheck}
             onChange={(v) => patch({ autoUpdateCheck: v })}
           />
@@ -127,12 +127,12 @@ function UpdateRow({
         <span>Atelier v{version}</span>
         {status === "up-to-date" && (
           <span className="font-mono text-[11px] uppercase tracking-[0.15em] text-muted">
-            Güncel
+            Up to date
           </span>
         )}
         {status === "available" && (
           <span className="font-mono text-[11px] uppercase tracking-[0.15em] text-price-drop">
-            v{update?.latestVersion} mevcut
+            v{update?.latestVersion} available
           </span>
         )}
       </div>
@@ -142,13 +142,13 @@ function UpdateRow({
       )}
       {status === "installing" && (
         <p className="text-xs text-ink-soft">
-          Kuruluyor — uygulama birazdan yeniden başlayacak…
+          Installing — the app will restart shortly…
         </p>
       )}
       {status === "downloaded" && (
         <p className="text-xs text-ink-soft">
-          Otomatik kurulamadı — DMG açıldı, Atelier&apos;i Applications
-          klasörüne sürükleyin.
+          Automatic install failed — the DMG has been opened, drag Atelier
+          into the Applications folder.
         </p>
       )}
 
@@ -166,10 +166,10 @@ function UpdateRow({
               <Loader2 className="h-3 w-3 animate-spin" />
             )}
             {status === "installing"
-              ? "Kuruluyor…"
+              ? "Installing…"
               : status === "downloading"
-                ? `%${update?.percent ?? 0} indiriliyor…`
-                : `v${update?.latestVersion} indir ve kur`}
+                ? `Downloading ${update?.percent ?? 0}%…`
+                : `Download and install v${update?.latestVersion}`}
           </button>
         ) : (
           <button
@@ -182,8 +182,8 @@ function UpdateRow({
               <Loader2 className="h-3 w-3 animate-spin" />
             )}
             {status === "checking"
-              ? "Denetleniyor…"
-              : "Güncellemeleri denetle"}
+              ? "Checking…"
+              : "Check for updates"}
           </button>
         )}
       </div>
