@@ -3,6 +3,7 @@ import type { BaseScraper } from "./base";
 import { BershkaScraper } from "./bershka";
 import { StradivariusScraper } from "./stradivarius";
 import { PullandbearScraper } from "./pullandbear";
+import { LeftiesScraper } from "./lefties";
 import { ZaraScraper } from "./zara";
 import { SneaksupScraper } from "./sneaksup";
 import { TommyScraper } from "./tommy";
@@ -21,6 +22,7 @@ const scrapers: BaseScraper[] = [
   new BershkaScraper(),
   new StradivariusScraper(),
   new PullandbearScraper(),
+  new LeftiesScraper(),
   new SneaksupScraper(),
   new TommyScraper(),
   new VictoriassecretScraper(),

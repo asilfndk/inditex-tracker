@@ -5,6 +5,7 @@ export const BRAND_LABELS: Record<Brand, string> = {
   bershka: "Bershka",
   stradivarius: "Stradivarius",
   pullandbear: "Pull & Bear",
+  lefties: "Lefties",
   sneaksup: "SneaksUp",
   tommy: "Tommy Hilfiger",
   victoriassecret: "Victoria's Secret",

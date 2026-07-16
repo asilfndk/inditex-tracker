@@ -32,6 +32,9 @@ const LISTINGS = [
   // Pull & Bear — direct product URLs (multi-color + sizeless perfume).
   "https://www.pullandbear.com/tr/keten-jogger-pantolon-l03671509?cS=717&pelement=744752801",
   "https://www.pullandbear.com/tr/freaking-marvellous-parfum-l00100501?cS=157&pelement=721970742",
+  // Lefties — direct product URLs (multi-color jeans + footwear).
+  "https://www.lefties.com/tr/en/woman/clothing/jeans/lightweight-striped-culotte-jeans-c1030267526p747880059.html?colorId=104&parentId=747884869",
+  "https://www.lefties.com/tr/en/woman/footwear/flat-sandals/gold-strappy-flat-sandals-c1030290507p747861209.html?colorId=091&style=04&parentId=754686322",
   // Newer stores — direct product URLs (parseUrl matches → scraped directly).
   "https://www.sneaksup.com/new-balance-9060-lifestyle-womens-shoes-u9060blk-w-1",
   "https://tr.tommy.com/erkek-hirka_206739",

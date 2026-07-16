@@ -12,6 +12,7 @@ export const BRANDS = [
   "bershka",
   "stradivarius",
   "pullandbear",
+  "lefties",
   "sneaksup",
   "tommy",
   "victoriassecret",
