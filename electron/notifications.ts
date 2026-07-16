@@ -8,6 +8,16 @@ function notify(title: string, body: string, onClick?: () => void): void {
   // Play an explicit system sound on macOS (silent:false alone does not always play).
   const n = new Notification({ title, body, silent: false, sound: "Glass" });
   if (onClick) n.on("click", onClick);
+  // macOS never surfaces registration failures (blocked permission, signature
+  // mismatch) — "show" simply never fires. Log it so running the app from a
+  // terminal makes the failure visible (Electron's "failed" event is Windows-only).
+  const watchdog = setTimeout(() => {
+    console.warn(
+      "[notifications] 'show' never fired — likely blocked by macOS " +
+        "(check System Settings → Notifications → Atelier; see docs/TROUBLESHOOTING.md)",
+    );
+  }, 3000);
+  n.on("show", () => clearTimeout(watchdog));
   n.show();
 }
 
@@ -46,15 +56,11 @@ export function notifyPriceDrop(
 
 /** When a new app version is found — clicking opens settings (download button). */
 export function notifyUpdateAvailable(version: string): void {
-  if (!Notification.isSupported()) return;
-  const n = new Notification({
-    title: "Update available",
-    body: `Atelier v${version} is ready to install. Open Settings to update.`,
-    silent: false,
-    sound: "Glass",
-  });
-  n.on("click", () => openSettings());
-  n.show();
+  notify(
+    "Update available",
+    `Atelier v${version} is ready to install. Open Settings to update.`,
+    () => openSettings(),
+  );
 }
 
 /** Badge on the dock icon with the count of in-stock products. */
