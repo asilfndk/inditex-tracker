@@ -675,7 +675,19 @@ function makeItxrestScript(cfg: ItxrestScriptConfig): string {
           });
           const v = {
             color: String(c.name || c.id || ''),
-            url: location.origin + location.pathname + '?${cfg.colorParam}=' + c.id,
+            // Keep the page's other query params (?${cfg.productIdParam}=, style…):
+            // they carry the API productId — a bare ?${cfg.colorParam}= URL
+            // re-scrapes as "no sizes / sold out".
+            url: (function () {
+              try {
+                const vu = new URL(location.href);
+                vu.searchParams.set('${cfg.colorParam}', c.id);
+                vu.hash = '';
+                return vu.toString();
+              } catch (e) {
+                return location.origin + location.pathname + '?${cfg.colorParam}=' + c.id;
+              }
+            })(),
             imageUrl: xmediaImg[String(c.id)] || null,
             sizes,
             price: sizes.length ? sizes[0].price : (rows[0] ? minor(rows[0].price) : null),
